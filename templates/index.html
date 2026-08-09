@@ -601,24 +601,28 @@
     </style>
 </head>
 <body>
-    
-<!-- 기존 <body> 최상단의 로그인 오버레이는 관리자 전용으로 수정 -->
-<div class="modal-overlay" id="adminLoginOverlay">
-    <div class="glass modal-content" style="max-width: 420px;">
-        <div class="modal-header">
-            <h2 class="modal-title">Admin Login</h2>
-            <button class="close-btn" onclick="document.getElementById('adminLoginOverlay').classList.remove('active')">
-                <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-            </button>
-        </div>
-        <div class="form-group">
-            <label class="form-label">Admin Password</label>
-            <input type="password" class="form-input" id="adminPassword" placeholder="관리자 비밀번호 입력" onkeypress="if(event.key==='Enter') attemptAdminLogin()">
-        </div>
-        <button class="glass-btn glass-btn-primary" style="width: 100%;" onclick="attemptAdminLogin()">Login</button>
+<!-- 기존 Header 부분을 찾아 아래 코드로 교체하세요 -->
+<header class="glass">
+    <!-- 왼쪽: 큰 마크 (중복 타이틀 제거) -->
+    <div class="brand-symbol" onclick="window.scrollTo({top:0, behavior:'smooth'})" style="width: 48px; height: 48px;">
+        <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+        </svg>
     </div>
-</div>
+    
+    <!-- 오른쪽: 인증 영역 (JS로 동적 렌더링) -->
+    <div style="display: flex; gap: 1rem; align-items: center;" id="authArea">
+        <!-- 로딩 스피너 또는 기본 상태 -->
+        <div class="status-badge" style="border: none; padding: 0;">
+            <div class="status-dot"></div>
+        </div>
+    </div>
+</header>
 
+<!-- Admin Login Modal (기존 코드 유지) -->
+<div class="modal-overlay" id="adminLoginOverlay">
+    <!-- ... 기존 관리자 로그인 모달 내용 ... -->
+</div>
 <!-- Header 수정 -->
 <header class="glass">
     <div class="brand">
