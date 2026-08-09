@@ -2,8 +2,8 @@ import os
 import datetime
 import requests
 from flask import Flask, render_template, jsonify, request, Response, session, redirect, url_for
-from flask_sqlalchemy import SQLAlchemy
 from werkzeug.middleware.proxy_fix import ProxyFix
+from models import db, User, Script  # 🚨 변경된 부분: models에서 import
 from security.rate_limit import limiter
 from security.auth import login_required, admin_required, check_upload_limits, get_current_user
 
@@ -20,40 +20,9 @@ if database_url.startswith("postgres://"):
 app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-db = SQLAlchemy(app)
+# 🚨 변경된 부분: db 객체를 app에 초기화
+db.init_app(app)
 limiter.init_app(app)
-
-# --- 데이터 모델 ---
-class User(db.Model):
-    __tablename__ = 'users'
-    id = db.Column(db.Integer, primary_key=True)
-    discord_id = db.Column(db.String(50), unique=True, nullable=False)
-    role = db.Column(db.String(20), default='user')
-    daily_upload_count = db.Column(db.Integer, default=0)
-    last_upload_date = db.Column(db.Date, default=datetime.date.today)
-    last_upload_time = db.Column(db.DateTime, nullable=True)
-
-class Script(db.Model):
-    __tablename__ = 'scripts'
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), unique=True, nullable=False, index=True)
-    content = db.Column(db.Text, nullable=False)
-    owner_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
-
-    def to_dict(self, current_user):
-        is_owner = (current_user and self.owner_id == current_user.id)
-        is_admin = (current_user and current_user.role == 'admin')
-        
-        return {
-            'name': self.name,
-            'url': f"https://script.ekohub.xyz/{self.name}",
-            'owner_id': self.owner_id,
-            'can_edit': is_owner or is_admin,
-            'can_delete': is_owner or is_admin
-        }
-
-with app.app_context():
-    db.create_all()
 
 # --- 보안 헤더 ---
 @app.after_request
@@ -95,21 +64,18 @@ def discord_callback():
     }
     headers = {"Content-Type": "application/x-www-form-urlencoded"}
     
-    # 토큰 교환
     token_res = requests.post(token_url, data=payload, headers=headers)
     if token_res.status_code != 200:
         return redirect("/?error=token_failed")
     
     access_token = token_res.json().get("access_token")
     
-    # 유저 정보 가져오기
     user_res = requests.get("https://discord.com/api/users/@me", headers={"Authorization": f"Bearer {access_token}"})
     if user_res.status_code != 200:
         return redirect("/?error=user_fetch_failed")
     
     discord_id = user_res.json().get("id")
     
-    # DB에서 유저 조회 또는 생성
     user = User.query.filter_by(discord_id=discord_id).first()
     if not user:
         user = User(discord_id=discord_id, role='user')
@@ -155,7 +121,7 @@ def get_scripts():
     result = []
     for script in scripts:
         data = script.to_dict(current_user)
-        data['content'] = script.content # UI 미리보기 및 수정을 위해 포함
+        data['content'] = script.content
         result.append(data)
     return jsonify(result)
 
@@ -165,7 +131,6 @@ def get_scripts():
 def save_script():
     user = get_current_user()
     
-    # 관리자가 아닌 경우 커스텀 제한(3분 1회, 하루 10회) 검사
     if user.role != 'admin':
         allowed, msg = check_upload_limits()
         if not allowed:
@@ -184,7 +149,6 @@ def save_script():
     existing_script = Script.query.filter_by(name=name).first()
     try:
         if existing_script:
-            # 수정 권한 검사 (서버 측 강제)
             if existing_script.owner_id != user.id and user.role != 'admin':
                 return jsonify({"error": "다른 유저의 스크립트는 수정할 수 없습니다."}), 403
             existing_script.content = content
@@ -192,7 +156,6 @@ def save_script():
             new_script = Script(name=name, content=content, owner_id=user.id)
             db.session.add(new_script)
             
-            # 유저 업로드 카운트 증가
             if user.role != 'admin':
                 user.daily_upload_count += 1
                 user.last_upload_time = datetime.datetime.now()
@@ -213,7 +176,6 @@ def delete_script(name):
     
     script_to_delete = Script.query.filter_by(name=safe_name).first()
     if script_to_delete:
-        # 삭제 권한 검사 (서버 측 강제)
         if script_to_delete.owner_id != user.id and user.role != 'admin':
             return jsonify({"error": "다른 유저의 스크립트는 삭제할 수 없습니다."}), 403
             
@@ -240,6 +202,10 @@ def serve_script(script_name):
     if script:
         return Response(script.content, mimetype='text/plain')
     return Response("-- Script not found", status=404, mimetype='text/plain')
+
+# --- 테이블 생성 ---
+with app.app_context():
+    db.create_all()
 
 if __name__ == "__main__":
     port = int(os.environ.get('PORT', 5000))
