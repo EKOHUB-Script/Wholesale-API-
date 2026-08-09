@@ -29,19 +29,19 @@ db.init_app(app)
 limiter.init_app(app)
 
 # --- 인증 서버 설정 ---
-AUTH_SERVER_URL = os.environ.get('AUTH_SERVER_URL', 'https://authentication.p-e.kr')
-AUTH_INTERNAL_SECRET = os.environ.get('AUTH_INTERNAL_SECRET')
+AUTH_SERVER_URL = os.environ.get("AUTH_SERVER_URL", "https://authentication.p-e.kr")
+AUTH_INTERNAL_SECRET = os.environ.get('AUTH_INTERNAL_SECRET') # 서버 간 통신 보안용
 
 # --- 보안 헤더 ---
 @app.after_request
 def set_security_headers(response):
     response.headers['X-Content-Type-Options'] = 'nosniff'
     response.headers['X-Frame-Options'] = 'DENY'
-    # 인증 서버와의 통신은 서버 사이드(requests)에서 이루어지므로 CSP에 authentication.p-e.kr를 추가할 필요 없음
+    # 브라우저가 authentication.p-e.kr에 직접 fetch하지 않으므로 CSP에 추가하지 않습니다.
     response.headers['Content-Security-Policy'] = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://cdn.discordapp.com; connect-src 'self';"
     return response
 
-# --- 웹 대시보드 및 인증 코드 처리 ---
+# --- 웹 대시보드 및 auth_code 처리 ---
 @app.route("/")
 @limiter.limit("30 per minute")
 def index():
@@ -60,8 +60,10 @@ def index():
                 timeout=5 # 타임아웃 설정
             )
             
+            # HTTP 상태 코드와 JSON 형식 검증
             if verify_res.status_code == 200:
                 user_data = verify_res.json()
+                # 인증 서버가 반환한 정보 신뢰
                 discord_id = user_data.get("discord_id")
                 username = user_data.get("username")
                 avatar_url = user_data.get("avatar_url")
@@ -79,11 +81,15 @@ def index():
                         
                     db.session.commit()
                     session['user_id'] = user.id
-                    return redirect(url_for('index')) # 파라미터 제거하고 메인 페이지로 새로고침
+                    # 파라미터 제거하고 메인 페이지로 새로고침
+                    return redirect(url_for('index'))
             else:
+                # 검증 실패 시 서버 로그에 원인 기록 (auth_code는 로그에 남기지 않음)
                 app.logger.error(f"Auth verify failed: Status {verify_res.status_code}")
         except requests.exceptions.RequestException as e:
             app.logger.error(f"Auth server network error: {str(e)}")
+        except ValueError:
+            app.logger.error("Auth verify response is not valid JSON")
         
         # 검증 실패 시 에러 파라미터와 함께 리다이렉트
         return redirect(url_for('index', error='auth_failed'))
@@ -113,7 +119,22 @@ def get_me():
         })
     return jsonify({"loggedIn": False}), 401
 
-# --- 스크립트 API (기존 코드 유지) ---
+# --- 관리자 로그인 (기존 비밀번호 방식 유지) ---
+@app.route("/api/auth/admin", methods=['POST'])
+@limiter.limit("5 per minute")
+def admin_auth():
+    data = request.json
+    if data and data.get('password') == os.environ.get('ADMIN_PASSWORD'):
+        admin_user = User.query.filter_by(role='admin').first()
+        if not admin_user:
+            admin_user = User(discord_id='admin', role='admin', username='EKOHUB Admin', avatar_url=None)
+            db.session.add(admin_user)
+            db.session.commit()
+        session['user_id'] = admin_user.id
+        return jsonify({"success": True, "role": "admin"})
+    return jsonify({"error": "관리자 비밀번호가 틀렸습니다."}), 401
+
+# --- 스크립트 API (기존 코드 100% 유지) ---
 @app.route("/api/scripts", methods=['GET'])
 @limiter.limit("30 per minute")
 def get_scripts():
@@ -201,21 +222,6 @@ def serve_script(script_name):
     if script:
         return Response(script.content, mimetype='text/plain')
     return Response("-- Script not found", status=404, mimetype='text/plain')
-
-# --- 관리자 로그인 (기존 비밀번호 방식 유지) ---
-@app.route("/api/auth/admin", methods=['POST'])
-@limiter.limit("5 per minute")
-def admin_auth():
-    data = request.json
-    if data and data.get('password') == os.environ.get('ADMIN_PASSWORD'):
-        admin_user = User.query.filter_by(role='admin').first()
-        if not admin_user:
-            admin_user = User(discord_id='admin', role='admin', username='EKOHUB Admin', avatar_url=None)
-            db.session.add(admin_user)
-            db.session.commit()
-        session['user_id'] = admin_user.id
-        return jsonify({"success": True, "role": "admin"})
-    return jsonify({"error": "관리자 비밀번호가 틀렸습니다."}), 401
 
 with app.app_context():
     db.create_all()
