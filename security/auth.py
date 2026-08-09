@@ -1,31 +1,63 @@
 import os
-import re
+import datetime
 from functools import wraps
 from flask import session, jsonify, request
+from app import db, User, AuthToken
 
-# 환경변수에서 관리자 비밀번호 가져오기
-ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'default_fallback_password')
+ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'default_admin_pass')
 
-def is_admin():
-    return session.get('admin') == True
+def get_current_user():
+    user_id = session.get('user_id')
+    if not user_id:
+        return None
+    return User.query.get(user_id)
+
+def login_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        user = get_current_user()
+        if not user:
+            return jsonify({"error": "Unauthorized. 디스코드 인증이 필요합니다."}), 401
+        return f(*args, **kwargs)
+    return decorated
 
 def admin_required(f):
     @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if not is_admin():
-            return jsonify({"error": "Unauthorized"}), 401
-        
-        # CSRF 방어: 상태 변경 요청(POST, DELETE 등)은 반드시 커스텀 헤더를 요구
-        # (외부 악성 웹사이트에서 폼/스크립트로 직접 요청하는 것을 차단)
-        if request.method in ['POST', 'DELETE', 'PUT', 'PATCH']:
-            if not request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                return jsonify({"error": "CSRF check failed"}), 403
-                
+    def decorated(*args, **kwargs):
+        user = get_current_user()
+        if not user or user.role != 'admin':
+            return jsonify({"error": "Forbidden. 관리자 권한이 필요합니다."}), 403
         return f(*args, **kwargs)
-    return decorated_function
+    return decorated
+
+def check_upload_limits():
+    """일반 유저의 업로드 제한 검사 (3분 1회, 하루 10회)"""
+    user = get_current_user()
+    if not user or user.role == 'admin':
+        return True, None # 관리자는 제한 없음
+
+    now = datetime.datetime.now()
+    today = now.date()
+
+    # 날짜가 바뀌면 카운트 초기화
+    if user.last_upload_date < today:
+        user.daily_upload_count = 0
+        user.last_upload_date = today
+
+    # 하루 10개 제한
+    if user.daily_upload_count >= 10:
+        return False, "하루 최대 10개까지만 업로드할 수 있습니다."
+
+    # 3분(180초)당 1개 제한
+    if user.last_upload_time:
+        diff = (now - user.last_upload_time).total_seconds()
+        if diff < 180:
+            return False, f"스크립트 업로드는 3분당 1개만 가능합니다. ({int(180-diff)}초 후 시도하세요)"
+
+    return True, None
 
 def validate_script_name(name):
-    """스크립트 이름 검증: 영문, 숫자, _, - 만 허용 (최대 50자)"""
     if not name or len(name) > 50:
         return False
+    import re
     return bool(re.match(r'^[a-zA-Z0-9_-]+$', name))
