@@ -2,9 +2,7 @@ import os
 import datetime
 from functools import wraps
 from flask import session, jsonify, request
-from app import db, User, AuthToken
-
-ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'default_admin_pass')
+from app import db, User
 
 def get_current_user():
     user_id = session.get('user_id')
@@ -17,7 +15,12 @@ def login_required(f):
     def decorated(*args, **kwargs):
         user = get_current_user()
         if not user:
-            return jsonify({"error": "Unauthorized. 디스코드 인증이 필요합니다."}), 401
+            return jsonify({"error": "Unauthorized. 로그인이 필요합니다."}), 401
+        
+        # CSRF 방어: 상태 변경 요청은 커스텀 헤더 필수
+        if request.method in ['POST', 'PUT', 'PATCH', 'DELETE']:
+            if not request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return jsonify({"error": "CSRF check failed"}), 403
         return f(*args, **kwargs)
     return decorated
 
@@ -27,6 +30,10 @@ def admin_required(f):
         user = get_current_user()
         if not user or user.role != 'admin':
             return jsonify({"error": "Forbidden. 관리자 권한이 필요합니다."}), 403
+        
+        if request.method in ['POST', 'PUT', 'PATCH', 'DELETE']:
+            if not request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return jsonify({"error": "CSRF check failed"}), 403
         return f(*args, **kwargs)
     return decorated
 
@@ -55,9 +62,3 @@ def check_upload_limits():
             return False, f"스크립트 업로드는 3분당 1개만 가능합니다. ({int(180-diff)}초 후 시도하세요)"
 
     return True, None
-
-def validate_script_name(name):
-    if not name or len(name) > 50:
-        return False
-    import re
-    return bool(re.match(r'^[a-zA-Z0-9_-]+$', name))
