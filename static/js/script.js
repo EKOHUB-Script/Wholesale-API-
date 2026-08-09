@@ -2,8 +2,48 @@ const API_URL = '/api/scripts';
 let scriptsData = [];
 let currentUser = null;
 
-// --- 초기 로드 ---
 document.addEventListener('DOMContentLoaded', async () => {
+    const urlParams = new URLSearchParams(window.location.search);
+
+    if (urlParams.has('error')) {
+        alert('로그인에 실패했습니다. 다시 시도해주세요.');
+        history.replaceState({}, document.title, window.location.pathname);
+    }
+
+    const authCode = urlParams.get('auth_code');
+
+    if (authCode) {
+        try {
+            const res = await fetch('/api/auth/complete', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    code: authCode
+                })
+            });
+
+            const data = await res.json();
+
+            if (!res.ok || !data.success) {
+                console.error('Authentication failed:', data);
+                alert('Discord 인증에 실패했습니다.');
+            }
+
+            history.replaceState(
+                {},
+                document.title,
+                window.location.pathname
+            );
+
+        } catch (e) {
+            console.error('Authentication completion error:', e);
+            alert('인증 처리 중 오류가 발생했습니다.');
+        }
+    }
+
     await checkAuthStatus();
     await loadScripts();
 });
