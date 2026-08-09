@@ -4,22 +4,35 @@ from flask_sqlalchemy import SQLAlchemy
 
 app = Flask(__name__)
 
-# --- 데이터베이스 설정 ---
-# Render 대시보드에서 설정한 환경 변수(DATABASE_URL)를 가져옵니다.
-# 로컬 테스트용으로 환경 변수가 없을 경우 SQLite를 사용하도록 설정합니다.
-database_url = os.environ.get('DATABASE_URL', 'sqlite:///local_scripts.db')
+# --- Supabase 데이터베이스 설정 ---
+# 1. 환경변수에서 DATABASE_URL 가져오기
+database_url = os.environ.get('DATABASE_URL')
 
-# Render의 PostgreSQL URL이 'postgres://'로 시작하면 SQLAlchemy 2.0 호환을 위해 'postgresql://'로 변경
-if database_url.startswith("postgres://"):
-    database_url = database_url.replace("postgres://", "postgresql://", 1)
+# 로컬 테스트용: 환경변수가 없을 경우 임시 SQLite 사용 (Render 배포 시에는 무시됨)
+if not database_url:
+    database_url = 'sqlite:///local_test.db'
+    print("경고: DATABASE_URL이 설정되지 않아 로컬 SQLite를 사용합니다.")
+else:
+    # 2. Supabase(또는 기타 호스팅)에서 'postgres://'로 시작하는 URI를 제공할 경우
+    # SQLAlchemy 2.0+ 호환을 위해 'postgresql://'로 변환
+    if database_url.startswith("postgres://"):
+        database_url = database_url.replace("postgres://", "postgresql://", 1)
 
+# 3. Flask-SQLAlchemy 설정
 app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+# Supabase Pooler(트랜잭션/세션) 사용 시 커넥션 재활용 설정 (선택 사항이지만 권장)
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    'pool_pre_ping': True,
+    'pool_recycle': 300
+}
 
 db = SQLAlchemy(app)
 
 # --- 데이터 모델 정의 ---
 class Script(db.Model):
+    __tablename__ = 'scripts' # Supabase에 생성될 테이블 이름
+    
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), unique=True, nullable=False, index=True)
     content = db.Column(db.Text, nullable=False)
@@ -31,7 +44,7 @@ class Script(db.Model):
             'url': f"https://script.ekohub.xyz/{self.name}"
         }
 
-# 앱 실행 시 테이블 생성 (최초 1회)
+# 앱 실행 시 테이블 생성 (최초 1회 자동 생성됨)
 with app.app_context():
     db.create_all()
 
@@ -50,7 +63,7 @@ def get_scripts():
 
 @app.route("/api/scripts", methods=['POST'])
 def save_script():
-    """스크립트 저장 또는 수정"""
+    """스크립트 저장 또는 수정 (Create / Update)"""
     data = request.json
     name = data.get('name', '').strip().lower()
     content = data.get('content', '')
@@ -79,7 +92,7 @@ def save_script():
 
 @app.route("/api/scripts/<name>", methods=['DELETE'])
 def delete_script(name):
-    """스크립트 삭제"""
+    """스크립트 삭제 (Delete)"""
     safe_name = "".join(c for c in name if c.isalnum() or c in ('_', '-')).lower()
     
     script_to_delete = Script.query.filter_by(name=safe_name).first()
@@ -97,7 +110,7 @@ def delete_script(name):
 # --- 로블록스 스크립트 호스팅 라우트 ---
 @app.route("/<script_name>")
 def serve_script(script_name):
-    """로블록스에서 loadstring으로 불러올 스크립트 반환"""
+    """로블록스에서 loadstring으로 불러올 스크립트 반환 (Read)"""
     safe_name = "".join(c for c in script_name if c.isalnum() or c in ('_', '-')).lower()
     
     # DB에서 스크립트 찾기
