@@ -2,13 +2,26 @@ import os
 import datetime
 from functools import wraps
 from flask import session, jsonify, request
-from models import db, User  # 🚨 변경된 부분: app 대신 models에서 import
+from models import db, User
+
+ADMIN_DISCORD_ID = os.environ.get('ADMIN_DISCORD_ID')
 
 def get_current_user():
     user_id = session.get('user_id')
     if not user_id:
         return None
-    return User.query.get(user_id)
+    
+    user = User.query.get(user_id)
+    if not user:
+        return None
+        
+    # 서버 측에서 관리자 권한 실시간 판별 (세션 조작 방지)
+    if ADMIN_DISCORD_ID and user.discord_id == ADMIN_DISCORD_ID:
+        user.role = 'admin'
+    else:
+        user.role = 'user'
+        
+    return user
 
 def login_required(f):
     @wraps(f)
