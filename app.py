@@ -8,11 +8,13 @@ from security.rate_limit import limiter
 from security.auth import login_required, admin_required, check_upload_limits, get_current_user
 
 app = Flask(__name__)
+# Render 리버스 프록시 환경에서 실제 클라이언트 IP 및 HTTPS 정보 보존
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 
 # --- 기본 설정 ---
 app.secret_key = os.environ.get('SECRET_KEY')
 app.config['MAX_CONTENT_LENGTH'] = 1 * 1024 * 1024 # 1MB 제한
+# Render HTTPS 환경에 맞춘 세션 쿠키 보안 설정 (매우 중요)
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SECURE'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
@@ -30,14 +32,13 @@ limiter.init_app(app)
 
 # --- 인증 서버 설정 ---
 AUTH_SERVER_URL = os.environ.get("AUTH_SERVER_URL", "https://authentication.p-e.kr")
-AUTH_INTERNAL_SECRET = os.environ.get('AUTH_INTERNAL_SECRET') # 서버 간 통신 보안용
+AUTH_INTERNAL_SECRET = os.environ.get('AUTH_INTERNAL_SECRET')
 
 # --- 보안 헤더 ---
 @app.after_request
 def set_security_headers(response):
     response.headers['X-Content-Type-Options'] = 'nosniff'
     response.headers['X-Frame-Options'] = 'DENY'
-    # 브라우저가 authentication.p-e.kr에 직접 fetch하지 않으므로 CSP에 추가하지 않습니다.
     response.headers['Content-Security-Policy'] = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://cdn.discordapp.com; connect-src 'self';"
     return response
 
@@ -63,7 +64,6 @@ def index():
             # HTTP 상태 코드와 JSON 형식 검증
             if verify_res.status_code == 200:
                 user_data = verify_res.json()
-                # 인증 서버가 반환한 정보 신뢰
                 discord_id = user_data.get("discord_id")
                 username = user_data.get("username")
                 avatar_url = user_data.get("avatar_url")
@@ -75,7 +75,7 @@ def index():
                         user = User(discord_id=discord_id, role='user', username=username, avatar_url=avatar_url)
                         db.session.add(user)
                     else:
-                        # 기존 유저 정보 업데이트
+                        # 기존 유저 정보(이름, 프사) 업데이트
                         user.username = username
                         user.avatar_url = avatar_url
                         
@@ -84,7 +84,6 @@ def index():
                     # 파라미터 제거하고 메인 페이지로 새로고침
                     return redirect(url_for('index'))
             else:
-                # 검증 실패 시 서버 로그에 원인 기록 (auth_code는 로그에 남기지 않음)
                 app.logger.error(f"Auth verify failed: Status {verify_res.status_code}")
         except requests.exceptions.RequestException as e:
             app.logger.error(f"Auth server network error: {str(e)}")
@@ -119,13 +118,14 @@ def get_me():
         })
     return jsonify({"loggedIn": False}), 401
 
-# --- 관리자 로그인 (기존 비밀번호 방식 유지) ---
+# --- 관리자 로그인 (비밀번호 방식 유지) ---
 @app.route("/api/auth/admin", methods=['POST'])
 @limiter.limit("5 per minute")
 def admin_auth():
     data = request.json
     if data and data.get('password') == os.environ.get('ADMIN_PASSWORD'):
-        admin_user = User.query.filter_by(role='admin').first()
+        # 관리자 Discord ID가 설정되어 있으면 해당 유저를 찾아서 로그인
+        admin_user = User.query.filter_by(discord_id=os.environ.get('ADMIN_DISCORD_ID', 'admin')).first()
         if not admin_user:
             admin_user = User(discord_id='admin', role='admin', username='EKOHUB Admin', avatar_url=None)
             db.session.add(admin_user)
@@ -134,7 +134,7 @@ def admin_auth():
         return jsonify({"success": True, "role": "admin"})
     return jsonify({"error": "관리자 비밀번호가 틀렸습니다."}), 401
 
-# --- 스크립트 API (기존 코드 100% 유지) ---
+# --- 스크립트 API (기존 로직 유지) ---
 @app.route("/api/scripts", methods=['GET'])
 @limiter.limit("30 per minute")
 def get_scripts():
