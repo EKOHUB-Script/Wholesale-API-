@@ -601,21 +601,25 @@
     </style>
 </head>
 <body>
-    <!-- Login Overlay -->
-<div id="loginOverlay" class="modal-overlay active">
-    <div class="glass modal-content" style="max-width: 400px;">
-        <div class="modal-header">
-            <h2 class="modal-title">Admin Login</h2>
-        </div>
-        <div class="form-group">
-            <label class="form-label">Password</label>
-            <input type="password" class="form-input" id="adminPassword" placeholder="Enter admin password">
-        </div>
-        <div class="modal-footer">
-            <button class="glass-btn glass-btn-primary" onclick="attemptLogin()">Login</button>
+    <!-- 기존 <body> 바로 아래에 추가 -->
+<body>
+    <!-- Login Overlay (기존 디자인 언어 유지) -->
+    <div class="modal-overlay active" id="loginOverlay">
+        <div class="glass modal-content" style="max-width: 400px;">
+            <div class="modal-header">
+                <h2 class="modal-title">Admin Login</h2>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Password</label>
+                <input type="password" class="form-input" id="adminPassword" placeholder="Enter admin password" onkeypress="if(event.key==='Enter') attemptLogin()">
+            </div>
+            <div class="modal-footer">
+                <button class="glass-btn glass-btn-primary" onclick="attemptLogin()">Login</button>
+            </div>
         </div>
     </div>
-</div>
+
+    <!-- 기존 메인 컨텐츠... -->
     <div class="bg-glow bg-glow-1"></div>
     <div class="bg-glow bg-glow-2"></div>
 
