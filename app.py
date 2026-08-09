@@ -3,19 +3,21 @@ import datetime
 import requests
 from flask import Flask, render_template, jsonify, request, Response, session, redirect, url_for
 from werkzeug.middleware.proxy_fix import ProxyFix
-from models import db, User, Script, AuthToken
+from models import db, User, Script
 from security.rate_limit import limiter
 from security.auth import login_required, admin_required, check_upload_limits, get_current_user
 
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 
+# --- 기본 설정 ---
 app.secret_key = os.environ.get('SECRET_KEY')
-app.config['MAX_CONTENT_LENGTH'] = 1 * 1024 * 1024
+app.config['MAX_CONTENT_LENGTH'] = 1 * 1024 * 1024 # 1MB 제한
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SECURE'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
+# --- DB 설정 ---
 database_url = os.environ.get('DATABASE_URL', 'sqlite:///local_test.db')
 if database_url.startswith("postgres://"):
     database_url = database_url.replace("postgres://", "postgresql://", 1)
@@ -26,6 +28,11 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db.init_app(app)
 limiter.init_app(app)
 
+# --- 인증 서버 설정 ---
+AUTH_SERVER_URL = os.environ.get("AUTH_SERVER_URL", "https://authentication.p-e.kr")
+AUTH_INTERNAL_SECRET = os.environ.get('AUTH_INTERNAL_SECRET')
+
+# --- 보안 헤더 ---
 @app.after_request
 def set_security_headers(response):
     response.headers['X-Content-Type-Options'] = 'nosniff'
@@ -33,37 +40,60 @@ def set_security_headers(response):
     response.headers['Content-Security-Policy'] = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://cdn.discordapp.com; connect-src 'self';"
     return response
 
+# --- 웹 대시보드 및 auth_code 처리 ---
 @app.route("/")
 @limiter.limit("30 per minute")
 def index():
+    auth_code = request.args.get('auth_code')
+    
+    # 인증 서버에서 리다이렉트된 auth_code가 있는 경우 서버 사이드 검증
+    if auth_code:
+        try:
+            verify_res = requests.post(
+                f"{AUTH_SERVER_URL}/api/auth/verify",
+                headers={
+                    "Content-Type": "application/json",
+                    "X-Auth-Secret": AUTH_INTERNAL_SECRET
+                },
+                json={"code": auth_code},
+                timeout=5
+            )
+            
+            if verify_res.status_code == 200:
+                user_data = verify_res.json()
+                discord_id = user_data.get("discord_id")
+                username = user_data.get("username")
+                avatar_url = user_data.get("avatar_url")
+                
+                if discord_id:
+                    # DB 유저 조회/생성
+                    user = User.query.filter_by(discord_id=discord_id).first()
+                    if not user:
+                        user = User(discord_id=discord_id, role='user', username=username, avatar_url=avatar_url)
+                        db.session.add(user)
+                    else:
+                        user.username = username
+                        user.avatar_url = avatar_url
+                        
+                    db.session.commit()
+                    session['user_id'] = user.id
+                    return redirect(url_for('index'))
+            else:
+                app.logger.error(f"Auth verify failed: Status {verify_res.status_code}")
+        except requests.exceptions.RequestException as e:
+            app.logger.error(f"Auth server network error: {str(e)}")
+        except ValueError:
+            app.logger.error("Auth verify response is not valid JSON")
+        
+        return redirect(url_for('index', error='auth_failed'))
+        
     return render_template("index.html")
 
-# --- 봇 입장권 코드 로그인 ---
-@app.route("/api/auth/verify", methods=['POST'])
-@limiter.limit("5 per minute") # 무차별 대입 방지
-def verify_token():
-    data = request.json
-    token_code = data.get('code')
-    
-    if not token_code:
-        return jsonify({"error": "코드를 입력해주세요."}), 400
-        
-    # DB에서 코드 조회 (used 여부나 만료 시간 무시, 영구적 사용 가능)
-    auth_token = AuthToken.query.filter_by(token=token_code).first()
-    
-    if not auth_token:
-        return jsonify({"error": "유효하지 않은 코드입니다."}), 401
-    
-    # 유저 조회/생성
-    user = User.query.filter_by(discord_id=auth_token.discord_id).first()
-    if not user:
-        user = User(discord_id=auth_token.discord_id, role='user')
-        db.session.add(user)
-        
-    db.session.commit()
-    
-    session['user_id'] = user.id
-    return jsonify({"success": True, "role": user.role})
+# --- 인증 라우트 ---
+@app.route("/api/auth/discord")
+def discord_login():
+    # 메인 서버는 직접 OAuth를 처리하지 않고 인증 서버로 리다이렉트 (디스코드 연동 승인 페이지로 이동)
+    return redirect(f"{AUTH_SERVER_URL}/api/auth/discord")
 
 @app.route("/api/auth/logout", methods=['POST'])
 def logout():
@@ -77,7 +107,7 @@ def get_me():
         return jsonify({
             "loggedIn": True, 
             "role": user.role,
-            "username": user.username or "User",
+            "username": user.username,
             "avatar_url": user.avatar_url
         })
     return jsonify({"loggedIn": False}), 401
@@ -90,7 +120,7 @@ def admin_auth():
     if data and data.get('password') == os.environ.get('ADMIN_PASSWORD'):
         admin_user = User.query.filter_by(role='admin').first()
         if not admin_user:
-            admin_user = User(discord_id='admin', role='admin', username='EKOHUB Admin')
+            admin_user = User(discord_id='admin', role='admin', username='EKOHUB Admin', avatar_url=None)
             db.session.add(admin_user)
             db.session.commit()
         session['user_id'] = admin_user.id
