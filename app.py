@@ -1,22 +1,20 @@
 import os
-import logging
-from flask import Flask, render_template, jsonify, request, Response, session, redirect, url_for
+from flask import Flask, render_template, jsonify, request, Response, session
 from flask_sqlalchemy import SQLAlchemy
-from flask_limiter import Limiter
 from werkzeug.exceptions import RequestEntityTooLarge
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from security.rate_limit import limiter
-from security.auth import admin_required, validate_script_name, log_audit, ADMIN_PASSWORD
+from security.auth import admin_required, validate_script_name, ADMIN_PASSWORD
 
 app = Flask(__name__)
-app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1) # Render 프록시 IP 처리
+# Render 리버스 프록시 환경에서 실제 클라이언트 IP를 올바르게 식별하기 위함
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 
-# --- 기본 설정 ---
-app.secret_key = os.environ.get('SECRET_KEY', os.urandom(24))
+# --- 기본 설정 (환경변수 사용) ---
+app.secret_key = os.environ.get('SECRET_KEY') # 세션 암호화 키
 app.config['MAX_CONTENT_LENGTH'] = 1 * 1024 * 1024 # 1MB 요청 본문 크기 제한 (DDoS 방어)
-app.config['SESSION_COOKIE_SECURE'] = True # HTTPS 전용 쿠키
-app.config['SESSION_COOKIE_HTTPONLY'] = True # JS 접근 차단
+app.config['SESSION_COOKIE_HTTPONLY'] = True # JavaScript로 세션 쿠키 접근 차단
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax' # CSRF 완화
 
 # --- DB 설정 ---
@@ -43,17 +41,6 @@ class Script(db.Model):
             data['content'] = self.content
         return data
 
-class AuditLog(db.Model):
-    __tablename__ = 'audit_logs'
-    id = db.Column(db.Integer, primary_key=True)
-    ip_address = db.Column(db.String(45))
-    action = db.Column(db.String(50))
-    target = db.Column(db.String(100))
-    success = db.Column(db.Boolean, default=False)
-    reason = db.Column(db.String(255))
-    user_agent = db.Column(db.String(255))
-    timestamp = db.Column(db.DateTime, server_default=db.func.now())
-
 with app.app_context():
     db.create_all()
 
@@ -61,10 +48,9 @@ with app.app_context():
 @app.after_request
 def set_security_headers(response):
     response.headers['X-Content-Type-Options'] = 'nosniff'
-    response.headers['X-Frame-Options'] = 'DENY' # Clickjacking 방어
+    response.headers['X-Frame-Options'] = 'DENY'
     response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
-    response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
-    # CSP: 대시보드 UI(인라인 스크립트/스타일, Google Fonts)가 깨지지 않도록 설정
+    # 대시보드 UI(인라인 스크립트/스타일, Google Fonts)가 깨지지 않도록 CSP 설정
     response.headers['Content-Security-Policy'] = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:;"
     return response
 
@@ -84,25 +70,24 @@ def server_error(e):
 def too_large(e):
     return jsonify({"error": "요청 크기가 1MB 제한을 초과했습니다."}), 413
 
-# --- 웹 대시보드 및 인증 ---
+# --- 웹 대시보드 ---
 @app.route("/")
 @limiter.limit("30 per minute")
 def index():
     return render_template("index.html")
 
-@app.route("/login", methods=['POST'])
-@limiter.limit("5 per minute") # 브루트포스 방어
-def login():
+# --- 인증 API ---
+@app.route("/api/login", methods=['POST'])
+@limiter.limit("5 per minute") # 브루트포스 공격 방어
+def api_login():
     data = request.json
     if data and data.get('password') == ADMIN_PASSWORD:
-        session['admin'] = True
-        log_audit("LOGIN", "admin", True)
-        return jsonify({"success": True})
-    log_audit("LOGIN", "admin", False, "Invalid password")
+        session['admin'] = True # 안전한 세션 발급
+        return jsonify({"success": True, "message": "로그인 성공"})
     return jsonify({"error": "Invalid credentials"}), 401
 
-@app.route("/logout", methods=['POST'])
-def logout():
+@app.route("/api/logout", methods=['POST'])
+def api_logout():
     session.pop('admin', None)
     return jsonify({"success": True})
 
@@ -123,7 +108,6 @@ def save_script():
     content = data.get('content', '')
     
     if not validate_script_name(name):
-        log_audit("CREATE", name, False, "Invalid name format")
         return jsonify({'error': '이름은 영문, 숫자, _, - 만 가능합니다.'}), 400
     
     if len(content) > 100000:
@@ -133,11 +117,9 @@ def save_script():
     try:
         if existing_script:
             existing_script.content = content
-            log_audit("UPDATE", name, True)
         else:
             new_script = Script(name=name, content=content)
             db.session.add(new_script)
-            log_audit("CREATE", name, True)
         db.session.commit()
         return jsonify({'success': True})
     except Exception as e:
@@ -156,14 +138,12 @@ def delete_script(name):
         try:
             db.session.delete(script_to_delete)
             db.session.commit()
-            log_audit("DELETE", safe_name, True)
             return jsonify({'success': True})
         except Exception as e:
             db.session.rollback()
             app.logger.error(f"DB Error: {e}")
             return jsonify({'error': '서버 내부 오류가 발생했습니다.'}), 500
     
-    log_audit("DELETE", safe_name, False, "Not found")
     return jsonify({'error': '스크립트를 찾을 수 없습니다.'}), 404
 
 # --- 공개 스크립트 호스팅 (로블록스용 / 인증 불필요) ---
@@ -172,7 +152,6 @@ def delete_script(name):
 def serve_script(script_name):
     safe_name = "".join(c for c in script_name if c.isalnum() or c in ('_', '-')).lower()
     
-    # 경로 탐색(Path Traversal) 방지
     if not validate_script_name(safe_name) or safe_name != script_name.lower():
         return Response("-- Invalid script name", status=400, mimetype='text/plain')
     
