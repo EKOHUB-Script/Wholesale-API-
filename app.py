@@ -1,9 +1,9 @@
 import os
 import datetime
 import requests
-from flask import Flask, render_template, jsonify, request, Response, session, redirect, url_for
+from flask import Flask, render_template, jsonify, request, Response, session, redirect
 from werkzeug.middleware.proxy_fix import ProxyFix
-from models import db, User, Script  # 🚨 변경된 부분: models에서 import
+from models import db, User, Script
 from security.rate_limit import limiter
 from security.auth import login_required, admin_required, check_upload_limits, get_current_user
 
@@ -11,7 +11,7 @@ app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 
 app.secret_key = os.environ.get('SECRET_KEY')
-app.config['MAX_CONTENT_LENGTH'] = 1 * 1024 * 1024 # 1MB 제한
+app.config['MAX_CONTENT_LENGTH'] = 1 * 1024 * 1024
 
 database_url = os.environ.get('DATABASE_URL', 'sqlite:///local_test.db')
 if database_url.startswith("postgres://"):
@@ -20,19 +20,16 @@ if database_url.startswith("postgres://"):
 app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-# 🚨 변경된 부분: db 객체를 app에 초기화
 db.init_app(app)
 limiter.init_app(app)
 
-# --- 보안 헤더 ---
 @app.after_request
 def set_security_headers(response):
     response.headers['X-Content-Type-Options'] = 'nosniff'
     response.headers['X-Frame-Options'] = 'DENY'
-    response.headers['Content-Security-Policy'] = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:;"
+    response.headers['Content-Security-Policy'] = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://cdn.discordapp.com; connect-src 'self';"
     return response
 
-# --- 웹 대시보드 ---
 @app.route("/")
 @limiter.limit("30 per minute")
 def index():
@@ -74,13 +71,24 @@ def discord_callback():
     if user_res.status_code != 200:
         return redirect("/?error=user_fetch_failed")
     
-    discord_id = user_res.json().get("id")
+    user_data = user_res.json()
+    discord_id = user_data.get("id")
+    username = user_data.get("username")
+    avatar_hash = user_data.get("avatar")
+    
+    # 디스코드 프로필 이미지 URL 생성
+    avatar_url = f"https://cdn.discordapp.com/avatars/{discord_id}/{avatar_hash}.png?size=64" if avatar_hash else None
     
     user = User.query.filter_by(discord_id=discord_id).first()
     if not user:
-        user = User(discord_id=discord_id, role='user')
+        user = User(discord_id=discord_id, role='user', username=username, avatar_url=avatar_url)
         db.session.add(user)
-        db.session.commit()
+    else:
+        # 기존 유저면 닉네임/프사 업데이트
+        user.username = username
+        user.avatar_url = avatar_url
+        
+    db.session.commit()
     
     session['user_id'] = user.id
     return redirect("/")
@@ -93,7 +101,7 @@ def admin_auth():
     if data and data.get('password') == os.environ.get('ADMIN_PASSWORD'):
         admin_user = User.query.filter_by(role='admin').first()
         if not admin_user:
-            admin_user = User(discord_id='admin', role='admin')
+            admin_user = User(discord_id='admin', role='admin', username='EKOHUB Admin', avatar_url=None)
             db.session.add(admin_user)
             db.session.commit()
         session['user_id'] = admin_user.id
@@ -109,7 +117,12 @@ def logout():
 def get_me():
     user = get_current_user()
     if user:
-        return jsonify({"loggedIn": True, "role": user.role})
+        return jsonify({
+            "loggedIn": True, 
+            "role": user.role,
+            "username": user.username,
+            "avatar_url": user.avatar_url
+        })
     return jsonify({"loggedIn": False}), 401
 
 # --- 스크립트 API ---
@@ -163,7 +176,7 @@ def save_script():
 
         db.session.commit()
         return jsonify({'success': True})
-    except Exception as e:
+    except Exception:
         db.session.rollback()
         return jsonify({'error': '서버 오류'}), 500
 
@@ -189,21 +202,18 @@ def delete_script(name):
     
     return jsonify({'error': '스크립트를 찾을 수 없습니다.'}), 404
 
-# --- 공개 스크립트 호스팅 (로블록스용) ---
+# --- 공개 스크립트 호스팅 ---
 @app.route("/<script_name>")
 @limiter.limit("100 per minute")
 def serve_script(script_name):
     safe_name = "".join(c for c in script_name if c.isalnum() or c in ('_', '-')).lower()
-    
     if not safe_name or len(safe_name) > 50 or safe_name != script_name.lower():
         return Response("-- Invalid script name", status=400, mimetype='text/plain')
-    
     script = Script.query.filter_by(name=safe_name).first()
     if script:
         return Response(script.content, mimetype='text/plain')
     return Response("-- Script not found", status=404, mimetype='text/plain')
 
-# --- 테이블 생성 ---
 with app.app_context():
     db.create_all()
 
