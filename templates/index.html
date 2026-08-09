@@ -601,6 +601,21 @@
     </style>
 </head>
 <body>
+    <!-- Login Overlay -->
+<div id="loginOverlay" class="modal-overlay active">
+    <div class="glass modal-content" style="max-width: 400px;">
+        <div class="modal-header">
+            <h2 class="modal-title">Admin Login</h2>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Password</label>
+            <input type="password" class="form-input" id="adminPassword" placeholder="Enter admin password">
+        </div>
+        <div class="modal-footer">
+            <button class="glass-btn glass-btn-primary" onclick="attemptLogin()">Login</button>
+        </div>
+    </div>
+</div>
     <div class="bg-glow bg-glow-1"></div>
     <div class="bg-glow bg-glow-2"></div>
 
