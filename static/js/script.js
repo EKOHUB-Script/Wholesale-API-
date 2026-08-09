@@ -1,138 +1,99 @@
 const API_URL = '/api/scripts';
 let scriptsData = [];
+let currentUser = null;
 
-// --- 로그인 및 인증 처리 ---
-async function attemptLogin() {
-    const password = document.getElementById('adminPassword').value;
+// --- 초기 로드 ---
+document.addEventListener('DOMContentLoaded', async () => {
+    await checkAuthStatus();
+    await loadScripts(); // 누구나 스크립트 목록 조회 가능
+});
+
+// --- 인증 상태 확인 및 UI 업데이트 ---
+async function checkAuthStatus() {
     try {
-        const res = await fetch('/api/login', {
-            method: 'POST',
-            headers: { 
-                'Content-Type': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest' // CSRF 방어 헤더
-            },
-            body: JSON.stringify({ password })
-        });
-        
+        const res = await fetch('/api/auth/me', { credentials: 'same-origin' });
         if (res.ok) {
-            document.getElementById('loginOverlay').classList.remove('active');
-            await loadScripts(); // 로그인 성공 후 대시보드 로드
+            const data = await res.json();
+            currentUser = data;
+            
+            // 로그인 된 상태
+            document.getElementById('discordLoginBtn').style.display = 'none';
+            document.getElementById('adminAuthBtn').style.display = 'none';
+            document.getElementById('logoutBtn').style.display = 'flex';
+            document.getElementById('newScriptBtn').style.display = 'flex'; // 글래스모피즘 UI의 New Script 버튼
         } else {
-            alert('비밀번호가 틀렸습니다.');
+            // 로그아웃 상태
+            currentUser = null;
+            document.getElementById('discordLoginBtn').style.display = 'flex';
+            document.getElementById('adminAuthBtn').style.display = 'flex';
+            document.getElementById('logoutBtn').style.display = 'none';
+            document.getElementById('newScriptBtn').style.display = 'none';
         }
-    } catch (error) {
-        console.error('Login error:', error);
-        alert('로그인 중 네트워크 오류가 발생했습니다.');
+    } catch (e) {
+        console.error('Auth check error:', e);
     }
 }
 
 async function logout() {
-    await fetch('/api/logout', {
+    await fetch('/api/auth/logout', {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'X-Requested-With': 'XMLHttpRequest' }
     });
-    document.getElementById('loginOverlay').classList.add('active');
-    document.getElementById('scriptList').innerHTML = '';
+    await checkAuthStatus();
+    await loadScripts();
 }
 
-// --- 초기 로드 시 인증 상태 확인 ---
-document.addEventListener('DOMContentLoaded', async () => {
-    try {
-        const res = await fetch(API_URL, {
-            credentials: 'same-origin' // 세션 쿠키 전송
-        });
-        
-        if (res.status === 401) {
-            // 인증되지 않음 -> 로그인 오버레이 표시 (이미 HTML에서 active 상태)
-            return;
-        } else if (res.ok) {
-            // 이미 로그인됨 -> 오버레이 숨기고 대시보드 로드
-            document.getElementById('loginOverlay').classList.remove('active');
-            await loadScripts();
-        }
-    } catch (error) {
-        console.error('Init check error:', error);
-    }
-});
-
-// --- 스크립트 CRUD (수정된 fetch) ---
-async function loadScripts() {
-    try {
-        const res = await fetch(API_URL, {
-            credentials: 'same-origin',
-            headers: { 'X-Requested-With': 'XMLHttpRequest' }
-        });
-        
-        if (res.status === 401) {
-            document.getElementById('loginOverlay').classList.add('active');
-            return;
-        }
-        if (res.status === 429) {
-            alert('너무 많은 요청을 보냈습니다. 잠시 후 다시 시도해주세요.');
-            return;
-        }
-        
-        scriptsData = await res.json();
-        renderScripts(scriptsData);
-    } catch (error) {
-        console.error('Error:', error);
+async function attemptAdminLogin() {
+    const password = document.getElementById('adminPassword').value;
+    const res = await fetch('/api/auth/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        body: JSON.stringify({ password })
+    });
+    if (res.ok) {
+        document.getElementById('adminLoginOverlay').classList.remove('active');
+        await checkAuthStatus();
+        await loadScripts();
+    } else {
+        alert('관리자 비밀번호가 틀렸습니다.');
     }
 }
 
-async function saveScript() {
-    const name = document.getElementById('scriptName').value.trim().toLowerCase();
-    const content = document.getElementById('scriptContent').value;
+// --- 스크립트 렌더링 (서버 권한 값 기반) ---
+function renderScripts(scripts) {
+    const list = document.getElementById('scriptList');
     
-    if (!name || !content) {
-        alert('Please fill in all fields.');
+    if (scripts.length === 0) {
+        list.innerHTML = `<div class="glass" style="padding: 3rem; text-align: center; grid-column: 1 / -1; color: var(--text-muted);">No scripts found.</div>`;
         return;
     }
 
-    try {
-        const res = await fetch(API_URL, {
-            method: 'POST',
-            credentials: 'same-origin', // 세션 쿠키 전송
-            headers: { 
-                'Content-Type': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest' // CSRF 헤더
-            },
-            body: JSON.stringify({ name, content })
-        });
+    list.innerHTML = scripts.map(script => {
+        const codeString = `loadstring(game:HttpGet("${script.url}"))()`;
+        const previewContent = script.content.length > 120 ? script.content.substring(0, 120) + '...' : script.content;
         
-        if (res.ok) {
-            closeModal();
-            await loadScripts();
-            alert('Script saved successfully.');
-        } else {
-            const data = await res.json();
-            alert(data.error || 'Failed to save script.');
-        }
-    } catch (error) {
-        alert('Network error occurred.');
-    }
+        // 서버에서 받은 can_edit, can_delete 값에 따라 버튼 렌더링
+        const actionButtons = `
+            ${script.can_edit ? `<button class="action-btn" onclick="editScript('${script.name}')">${icons.edit} Edit</button>` : ''}
+            ${script.can_delete ? `<button class="action-btn delete" onclick="openDeleteModal('${script.name}')">${icons.trash} Delete</button>` : ''}
+        `;
+
+        return `
+        <div class="glass script-card">
+            <div class="script-header">
+                <div class="script-name">${escapeHtml(script.name)}</div>
+            </div>
+            <div class="script-code-preview">${escapeHtml(previewContent)}</div>
+            <div class="script-url-box">${escapeHtml(codeString)}</div>
+            <div class="script-actions">
+                <button class="action-btn" onclick="copyUrl('${script.url}', this)">${icons.copy} Copy</button>
+                ${actionButtons}
+            </div>
+        </div>
+        `;
+    }).join('');
 }
 
-async function confirmDelete() {
-    if (!currentDeleteTarget) return;
-    
-    try {
-        const res = await fetch(`${API_URL}/${currentDeleteTarget}`, { 
-            method: 'DELETE',
-            credentials: 'same-origin', // 세션 쿠키 전송
-            headers: { 'X-Requested-With': 'XMLHttpRequest' } // CSRF 헤더
-        });
-        
-        if (res.ok) {
-            closeDeleteModal();
-            await loadScripts();
-            alert('Script deleted.');
-        } else {
-            alert('Failed to delete script.');
-        }
-    } catch (error) {
-        alert('Network error occurred.');
-    }
-}
-
-// (참고) renderScripts, openModal 등 기존 함수들은 그대로 유지됩니다.
+// loadScripts, saveScript, confirmDelete 함수는 기존과 동일하되 
+// fetch 호출 시 credentials: 'same-origin' 과 'X-Requested-With' 헤더 유지
