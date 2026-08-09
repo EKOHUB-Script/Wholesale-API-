@@ -1,369 +1,808 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>EKOHUB — Script Hosting Dashboard</title>
-<script src="https://cdn.tailwindcss.com"></script>
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Oswald:wght@300;400;500;600;700&family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-<style>
-  :root {
-    --bg: #0a0a0a;
-    --bg-darker: #050505;
-    --bg-card: #141414;
-    --bg-card-hover: #1a1a1a;
-    --fg: #f5f5f5;
-    --fg-dim: #c0c0c0;
-    --muted: #6a6a6a;
-    --accent: #FF5400;
-    --accent-bright: #FF7A33;
-    --accent-dim: #B33A00;
-    --silver: #C8C8C8;
-    --border: #1f1f1f;
-    --border-light: #2a2a2a;
-  }
-  
-  * { box-sizing: border-box; }
-  html { scroll-behavior: smooth; }
-  
-  body {
-    background: var(--bg);
-    color: var(--fg);
-    font-family: 'Archivo', sans-serif;
-    overflow-x: hidden;
-    margin: 0;
-    -webkit-font-smoothing: antialiased;
-  }
-  
-  .font-display { font-family: 'Bebas Neue', sans-serif; letter-spacing: 0.005em; }
-  .font-heading { font-family: 'Oswald', sans-serif; }
-  .font-mono { font-family: 'JetBrains Mono', monospace; }
-  
-  .bg-textured {
-    background-color: var(--bg);
-    background-image: radial-gradient(circle at 20% 30%, rgba(255, 84, 0, 0.06) 0%, transparent 40%);
-  }
-  
-  .nav-link {
-    position: relative;
-    font-family: 'Oswald', sans-serif;
-    font-size: 0.85rem;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: var(--fg-dim);
-    transition: color 0.3s;
-  }
-  .nav-link:hover { color: var(--fg); }
-  
-  .info-card {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    transition: border-color 0.4s, background 0.4s;
-  }
-  .info-card:hover {
-    border-color: var(--accent-dim);
-  }
-  
-  .btn-accent {
-    background: var(--accent);
-    color: black;
-    font-family: 'Oswald', sans-serif;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    transition: all 0.3s;
-  }
-  .btn-accent:hover {
-    background: var(--accent-bright);
-  }
-  
-  .code-input {
-    background: var(--bg-darker);
-    border: 1px solid var(--border-light);
-    color: var(--accent);
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.9rem;
-    padding: 0.75rem;
-    width: 100%;
-    outline: none;
-    transition: border-color 0.3s;
-  }
-  .code-input:focus { border-color: var(--accent); }
-  
-  textarea.code-input {
-    resize: vertical;
-    min-height: 200px;
-    color: var(--fg);
-  }
-  
-  ::-webkit-scrollbar { width: 8px; height: 8px; }
-  ::-webkit-scrollbar-track { background: var(--bg-darker); }
-  ::-webkit-scrollbar-thumb { background: var(--accent-dim); }
-  ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EKOHUB API - Script Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #050506;
+            --glass-bg: rgba(255, 255, 255, 0.025);
+            --glass-bg-hover: rgba(255, 255, 255, 0.04);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --glass-border-hover: rgba(255, 255, 255, 0.15);
+            --text-primary: #ffffff;
+            --text-secondary: rgba(255, 255, 255, 0.6);
+            --text-muted: rgba(255, 255, 255, 0.3);
+            --accent: #ffffff;
+            --shadow-glass: 0 8px 32px rgba(0, 0, 0, 0.3);
+            --shadow-hover: 0 12px 40px rgba(0, 0, 0, 0.4);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+            position: relative;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Background Ambient Glows (Strictly Monochrome) */
+        .bg-glow {
+            position: fixed;
+            border-radius: 50%;
+            filter: blur(120px);
+            z-index: -1;
+            opacity: 0.15;
+        }
+        .bg-glow-1 { top: -10%; left: -10%; width: 600px; height: 600px; background: #ffffff; }
+        .bg-glow-2 { bottom: -10%; right: -10%; width: 500px; height: 500px; background: #808080; }
+        .bg-glow-3 { top: 40%; left: 50%; width: 400px; height: 400px; background: #404040; transform: translate(-50%, -50%); opacity: 0.1; }
+
+        /* Glass Effect Base */
+        .glass {
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px) saturate(120%);
+            -webkit-backdrop-filter: blur(20px) saturate(120%);
+            border: 1px solid var(--glass-border);
+            box-shadow: var(--shadow-glass);
+            border-radius: 12px;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+
+        /* Subtle Reflection Highlight */
+        .glass::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -150%;
+            width: 60%;
+            height: 100%;
+            background: linear-gradient(120deg, transparent, rgba(255,255,255,0.03) 50%, transparent 80%);
+            transform: skewX(-20deg);
+            pointer-events: none;
+            transition: left 0.8s ease-in-out;
+            z-index: 1;
+        }
+
+        .glass:hover::before {
+            left: 150%;
+        }
+
+        /* Header */
+        header {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            padding: 1rem 2rem;
+            margin: 1rem auto;
+            max-width: 1400px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-radius: 12px;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .brand-logo {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 1.35rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            background: linear-gradient(180deg, #ffffff 0%, #909090 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-transform: uppercase;
+        }
+
+        .status-badge {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.4rem 0.9rem;
+            border-radius: 8px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--glass-border);
+        }
+
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            background: #ffffff;
+            border-radius: 50%;
+            box-shadow: 0 0 8px rgba(255, 255, 255, 0.6);
+            animation: pulse 3s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.8; }
+            50% { opacity: 0.3; }
+        }
+
+        /* Main Layout */
+        main {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem 1rem;
+            animation: fadeInUp 0.8s ease-out;
+        }
+
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Dashboard Stats */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 3rem;
+        }
+
+        .stat-card {
+            padding: 1.5rem;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-2px);
+            background: var(--glass-bg-hover);
+            border-color: var(--glass-border-hover);
+        }
+
+        .stat-label {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 0.5rem;
+            position: relative;
+            z-index: 2;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .stat-value {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 1.5rem;
+            font-weight: 600;
+            position: relative;
+            z-index: 2;
+        }
+
+        .stat-icon {
+            position: absolute;
+            top: 1.5rem;
+            right: 1.5rem;
+            width: 24px;
+            height: 24px;
+            opacity: 0.1;
+            z-index: 2;
+        }
+
+        /* Action Bar */
+        .action-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding: 0 0.5rem;
+        }
+
+        .section-title {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 1.2rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--text-primary);
+        }
+
+        .glass-btn {
+            padding: 0.7rem 1.3rem;
+            border: 1px solid var(--glass-border);
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.03);
+            color: var(--text-primary);
+            font-family: 'Inter', sans-serif;
+            font-weight: 500;
+            font-size: 0.85rem;
+            cursor: pointer;
+            backdrop-filter: blur(10px);
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .glass-btn:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: var(--glass-border-hover);
+        }
+
+        .glass-btn:active {
+            transform: scale(0.97);
+        }
+
+        .glass-btn-primary {
+            background: #ffffff;
+            color: #000000;
+            border-color: #ffffff;
+        }
+
+        .glass-btn-primary:hover {
+            background: #e0e0e0;
+            border-color: #e0e0e0;
+            box-shadow: 0 4px 20px rgba(255, 255, 255, 0.1);
+        }
+
+        .glass-btn-danger {
+            background: transparent;
+            border-color: rgba(255, 255, 255, 0.2);
+            color: var(--text-secondary);
+        }
+
+        .glass-btn-danger:hover {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: rgba(255, 255, 255, 0.4);
+            color: #ffffff;
+        }
+
+        /* Script Grid */
+        .script-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .script-card {
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .script-card:hover {
+            transform: translateY(-3px);
+            background: var(--glass-bg-hover);
+            border-color: var(--glass-border-hover);
+            box-shadow: var(--shadow-hover);
+        }
+
+        .script-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 0.5rem;
+            position: relative;
+            z-index: 2;
+        }
+
+        .script-name {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .script-url {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 0.25rem;
+            word-break: break-all;
+        }
+
+        .script-actions {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: auto;
+            padding-top: 1rem;
+            border-top: 1px solid var(--glass-border);
+            position: relative;
+            z-index: 2;
+        }
+
+        .action-btn {
+            flex: 1;
+            padding: 0.5rem;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid transparent;
+            border-radius: 6px;
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.4rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .action-btn:hover {
+            background: rgba(255, 255, 255, 0.06);
+            color: #ffffff;
+            border-color: var(--glass-border);
+        }
+
+        .action-btn:active {
+            transform: scale(0.95);
+        }
+
+        .action-btn.copied {
+            background: rgba(255, 255, 255, 0.1);
+            color: #ffffff;
+            border-color: rgba(255, 255, 255, 0.3);
+            animation: copySuccess 0.4s ease;
+        }
+
+        @keyframes copySuccess {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); box-shadow: 0 0 15px rgba(255, 255, 255, 0.1); }
+            100% { transform: scale(1); }
+        }
+
+        .action-btn.delete:hover {
+            background: rgba(255, 255, 255, 0.08);
+            color: #ffffff;
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(8px);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+            opacity: 1;
+        }
+
+        .modal-content {
+            width: 90%;
+            max-width: 580px;
+            padding: 2rem;
+            background: rgba(10, 10, 12, 0.6);
+            border: 1px solid var(--glass-border-hover);
+            animation: modalScaleIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        @keyframes modalScaleIn {
+            from { transform: scale(0.95); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            position: relative;
+            z-index: 2;
+        }
+
+        .modal-title {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 1.3rem;
+            font-weight: 600;
+        }
+
+        .close-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 0.5rem;
+            transition: color 0.2s;
+            border-radius: 6px;
+        }
+
+        .close-btn:hover { color: #ffffff; background: rgba(255,255,255,0.05); }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+            position: relative;
+            z-index: 2;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .form-input, .form-textarea {
+            width: 100%;
+            padding: 0.8rem 1rem;
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid var(--glass-border);
+            border-radius: 8px;
+            color: white;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.9rem;
+            transition: all 0.2s ease;
+            outline: none;
+        }
+
+        .form-textarea {
+            font-family: 'JetBrains Mono', monospace;
+            min-height: 160px;
+            resize: vertical;
+            line-height: 1.5;
+        }
+
+        .form-input:focus, .form-textarea:focus {
+            border-color: rgba(255, 255, 255, 0.3);
+            background: rgba(0, 0, 0, 0.3);
+            box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.03);
+        }
+
+        .form-input:disabled {
+            color: var(--text-muted);
+            cursor: not-allowed;
+        }
+
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.8rem;
+            margin-top: 2rem;
+            position: relative;
+            z-index: 2;
+        }
+
+        /* Toast Notification */
+        .toast {
+            position: fixed;
+            bottom: 2rem;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: rgba(20, 20, 25, 0.8);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border-hover);
+            padding: 1rem 1.5rem;
+            border-radius: 8px;
+            color: white;
+            font-size: 0.9rem;
+            opacity: 0;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 2000;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            header { padding: 1rem; margin: 0.5rem; flex-direction: column; gap: 1rem; border-radius: 12px; }
+            main { padding: 1rem 0.5rem; }
+            .stats-grid { grid-template-columns: 1fr 1fr; gap: 1rem; }
+            .stat-card { padding: 1rem; }
+            .stat-value { font-size: 1.2rem; }
+            .script-grid { grid-template-columns: 1fr; }
+            .action-bar { flex-direction: column; gap: 1rem; align-items: flex-start; padding: 0; }
+            .modal-content { padding: 1.5rem; }
+        }
+    </style>
 </head>
-<body class="bg-textured">
-  
-  <!-- Top Nav -->
-  <header class="fixed top-0 left-0 right-0 z-50 backdrop-blur-md bg-black/50 border-b border-white/5">
-    <div class="max-w-[1600px] mx-auto px-6 lg:px-10 py-4 flex items-center justify-between">
-      <a href="/" class="flex items-center gap-3 group">
-        <div class="w-9 h-9 bg-[var(--accent)] flex items-center justify-center relative">
-          <i class="fas fa-code text-black text-base"></i>
-        </div>
-        <div>
-          <div class="font-display text-2xl leading-none tracking-wider">EKO HUB</div>
-          <div class="font-mono text-[10px] text-[var(--muted)] tracking-[0.3em] mt-0.5">SCRIPT HOSTING</div>
-        </div>
-      </a>
-      
-      <nav class="hidden lg:flex items-center gap-10">
-        <a href="#dashboard" class="nav-link text-[var(--fg)]">대시보드</a>
-        <a href="#scripts" class="nav-link">스크립트 목록</a>
-        <a href="#editor" class="nav-link">스크립트 작성</a>
-      </nav>
-      
-      <div class="flex items-center gap-5">
-        <div class="hidden md:flex items-center gap-2 font-mono text-[11px] text-[var(--muted)]">
-          <span class="w-2 h-2 bg-[var(--accent)] rounded-full animate-pulse"></span>
-          <span class="tracking-[0.2em]">서버 온라인</span>
-        </div>
-      </div>
-    </div>
-  </header>
+<body>
+    <!-- Background Ambient Lights -->
+    <div class="bg-glow bg-glow-1"></div>
+    <div class="bg-glow bg-glow-2"></div>
+    <div class="bg-glow bg-glow-3"></div>
 
-  <!-- HERO / STATS -->
-  <section class="relative pt-32 pb-12 border-b border-[var(--border)]" id="dashboard">
-    <div class="max-w-[1600px] mx-auto px-6 lg:px-10">
-      <div class="mb-12">
-        <div class="font-mono text-[11px] text-[var(--accent)] tracking-[0.2em] uppercase mb-3">
-          // 스크립트 관리자 패널
+    <!-- Header -->
+    <header class="glass">
+        <div class="brand">
+            <div class="brand-logo">EKO HUB</div>
         </div>
-        <h1 class="font-display text-7xl md:text-8xl leading-[0.9] mb-4">
-          스크립트 <span class="text-[var(--accent)]">호스팅</span><br>
-          대시보드
-        </h1>
-        <p class="text-[var(--fg-dim)] text-lg max-w-xl">
-          로블록스 스크립트를 업로드하고 고유 URL을 통해 어디서든 불러오세요.
-        </p>
-      </div>
-      
-      <!-- Stats -->
-      <div class="grid grid-cols-2 lg:grid-cols-3 gap-6">
-        <div class="info-card p-6 border-l-2 border-l-[var(--accent)]">
-          <div class="font-mono text-[10px] text-[var(--muted)] tracking-[0.2em] uppercase mb-2">등록된 스크립트</div>
-          <div class="font-display text-5xl text-[var(--fg)]" id="statScripts">0</div>
+        <div class="status-badge">
+            <div class="status-dot"></div>
+            API ONLINE
         </div>
-        <div class="info-card p-6">
-          <div class="font-mono text-[10px] text-[var(--muted)] tracking-[0.2em] uppercase mb-2">기본 호스팅 주소</div>
-          <div class="font-mono text-sm text-[var(--accent)] break-all">https://script.ekohub.xyz/</div>
-        </div>
-        <div class="info-card p-6 col-span-2 lg:col-span-1">
-          <div class="font-mono text-[10px] text-[var(--muted)] tracking-[0.2em] uppercase mb-2">사용 방법</div>
-          <div class="font-mono text-xs text-[var(--fg-dim)]">loadstring(game:HttpGet("URL"))()</div>
-        </div>
-      </div>
-    </div>
-  </section>
+    </header>
 
-  <!-- SCRIPT LIST -->
-  <section class="py-16" id="scripts">
-    <div class="max-w-[1600px] mx-auto px-6 lg:px-10">
-      <div class="flex justify-between items-end mb-8">
-        <div>
-          <div class="font-mono text-[11px] text-[var(--accent)] tracking-[0.2em] uppercase mb-2">// 스크립트 목록</div>
-          <h2 class="font-display text-4xl">HOSTED SCRIPTS</h2>
-        </div>
-        <button onclick="openEditor()" class="btn-accent px-6 py-3 flex items-center gap-2">
-          <i class="fas fa-plus"></i> 새 스크립트
-        </button>
-      </div>
-      
-      <div id="scriptList" class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <!-- 스크립트 카드가 여기에 동적 생성됨 -->
-        <div class="info-card p-8 text-center text-[var(--muted)]">
-          <i class="fas fa-spinner fa-spin mb-3"></i>
-          <p>스크립트를 불러오는 중...</p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- EDITOR -->
-  <section class="py-16 border-t border-[var(--border)] bg-[var(--bg-darker)] hidden" id="editor">
-    <div class="max-w-[1600px] mx-auto px-6 lg:px-10">
-      <div class="mb-8">
-        <div class="font-mono text-[11px] text-[var(--accent)] tracking-[0.2em] uppercase mb-2">// 스크립트 작성기</div>
-        <h2 class="font-display text-4xl">SCRIPT EDITOR</h2>
-      </div>
-      
-      <div class="info-card p-8">
-        <div class="mb-4">
-          <label class="font-mono text-[10px] text-[var(--muted)] tracking-[0.2em] uppercase">스크립트 이름 (영문, 숫자만 가능)</label>
-          <input type="text" id="scriptName" class="code-input mt-2" placeholder="예: drivingempire">
-        </div>
-        
-        <div class="mb-4">
-          <label class="font-mono text-[10px] text-[var(--muted)] tracking-[0.2em] uppercase">루아 코드</label>
-          <textarea id="scriptContent" class="code-input mt-2" placeholder="print('Hello EKOHUB!')"></textarea>
-        </div>
-        
-        <div class="flex gap-4 mt-6">
-          <button onclick="saveScript()" class="btn-accent px-8 py-3 flex items-center gap-2">
-            <i class="fas fa-save"></i> 저장하기
-          </button>
-          <button onclick="closeEditor()" class="px-8 py-3 border border-[var(--border-light)] text-[var(--fg-dim)] hover:border-[var(--accent)] transition-colors">
-            취소
-          </button>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- FOOTER -->
-  <footer class="border-t border-[var(--border)] py-8 text-center">
-    <p class="font-mono text-[11px] text-[var(--muted)] tracking-[0.15em] uppercase">
-      © 2024 EKOHUB SCRIPT HOSTING · POWERED BY RENDER & FLASK
-    </p>
-  </footer>
-
-  <!-- Toast -->
-  <div id="toast" class="fixed top-24 right-8 bg-[var(--bg-card)] border-l-4 border-[var(--accent)] p-4 shadow-lg transform translate-x-[120%] transition-transform duration-500 z-50">
-    <div class="flex items-center gap-3">
-      <i class="fas fa-check-circle text-[var(--accent)]"></i>
-      <span id="toastMsg" class="font-heading text-sm">메시지</span>
-    </div>
-  </div>
-
-  <script>
-    // API 기본 URL
-    const API_URL = '/api/scripts';
-    
-    // 토스트 메시지 함수
-    function showToast(msg) {
-      const toast = document.getElementById('toast');
-      document.getElementById('toastMsg').textContent = msg;
-      toast.style.transform = 'translateX(0)';
-      setTimeout(() => { toast.style.transform = 'translateX(120%)'; }, 3000);
-    }
-
-    // 스크립트 목록 불러오기
-    async function loadScripts() {
-      try {
-        const res = await fetch(API_URL);
-        const scripts = await res.json();
-        
-        const list = document.getElementById('scriptList');
-        document.getElementById('statScripts').textContent = scripts.length;
-        
-        if(scripts.length === 0) {
-          list.innerHTML = `<div class="info-card p-8 text-center text-[var(--muted)] col-span-full">
-            <i class="fas fa-folder-open text-3xl mb-3 block"></i>
-            <p>등록된 스크립트가 없습니다. 새 스크립트를 추가해보세요!</p>
-          </div>`;
-          return;
-        }
-        
-        list.innerHTML = scripts.map(script => `
-          <div class="info-card overflow-hidden">
-            <div class="p-6 border-b border-[var(--border-light)]">
-              <div class="flex justify-between items-start mb-2">
-                <h3 class="font-display text-2xl text-[var(--accent)]">${script.name}</h3>
-                <div class="flex gap-2">
-                  <button onclick="copyUrl('${script.url}')" class="text-[var(--muted)] hover:text-[var(--accent)] text-sm"><i class="fas fa-copy"></i></button>
-                  <button onclick="editScript('${script.name}', \`${script.content.replace(/`/g, '\\`')}\`)" class="text-[var(--muted)] hover:text-[var(--accent)] text-sm"><i class="fas fa-edit"></i></button>
-                  <button onclick="deleteScript('${script.name}')" class="text-[var(--muted)] hover:text-red-500 text-sm"><i class="fas fa-trash"></i></button>
-                </div>
-              </div>
-              <div class="font-mono text-[10px] text-[var(--muted)] break-all bg-[var(--bg-darker)] p-2 rounded border border-[var(--border)]">
-                ${script.url}
-              </div>
+    <!-- Main Content -->
+    <main>
+        <!-- Stats Grid -->
+        <div class="stats-grid">
+            <div class="glass stat-card">
+                <div class="stat-label">Total Scripts</div>
+                <div class="stat-value" id="statScripts">0</div>
+                <svg class="stat-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
             </div>
-            <div class="p-6">
-              <pre class="font-mono text-xs text-[var(--fg-dim)] overflow-hidden h-24">${script.content.substring(0, 200)}${script.content.length > 200 ? '...' : ''}</pre>
+            <div class="glass stat-card">
+                <div class="stat-label">API Status</div>
+                <div class="stat-value">Online</div>
+                <svg class="stat-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
             </div>
-          </div>
-        `).join('');
-        
-      } catch (error) {
-        console.error('Error loading scripts:', error);
-      }
-    }
+            <div class="glass stat-card">
+                <div class="stat-label">Database</div>
+                <div class="stat-value">Supabase</div>
+                <svg class="stat-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"></path></svg>
+            </div>
+            <div class="glass stat-card">
+                <div class="stat-label">Last Updated</div>
+                <div class="stat-value" id="statUpdated">--:--</div>
+                <svg class="stat-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            </div>
+        </div>
 
-    // 에디터 열기 (새 작성)
-    function openEditor() {
-      document.getElementById('scriptName').value = '';
-      document.getElementById('scriptContent').value = '';
-      document.getElementById('editor').classList.remove('hidden');
-      document.getElementById('editor').scrollIntoView({ behavior: 'smooth' });
-    }
+        <!-- Action Bar -->
+        <div class="action-bar">
+            <div class="section-title">Hosted Scripts</div>
+            <button class="glass-btn glass-btn-primary" onclick="openModal()">
+                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                New Script
+            </button>
+        </div>
 
-    // 에디터 열기 (수정)
-    function editScript(name, content) {
-      document.getElementById('scriptName').value = name;
-      document.getElementById('scriptContent').value = content;
-      document.getElementById('editor').classList.remove('hidden');
-      document.getElementById('editor').scrollIntoView({ behavior: 'smooth' });
-    }
+        <!-- Script List -->
+        <div class="script-grid" id="scriptList">
+            <!-- Scripts will be injected here -->
+        </div>
+    </main>
 
-    // 에디터 닫기
-    function closeEditor() {
-      document.getElementById('editor').classList.add('hidden');
-    }
+    <!-- Script Modal -->
+    <div class="modal-overlay" id="scriptModal">
+        <div class="glass modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title" id="modalTitle">New Script</h2>
+                <button class="close-btn" onclick="closeModal()">
+                    <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Script Name</label>
+                <input type="text" class="form-input" id="scriptName" placeholder="e.g. drivingempire" autocomplete="off">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Lua Code</label>
+                <textarea class="form-textarea" id="scriptContent" placeholder="print('Hello EKOHUB!')"></textarea>
+            </div>
+            <div class="modal-footer">
+                <button class="glass-btn" onclick="closeModal()">Cancel</button>
+                <button class="glass-btn glass-btn-primary" onclick="saveScript()">Save Script</button>
+            </div>
+        </div>
+    </div>
 
-    // 스크립트 저장
-    async function saveScript() {
-      const name = document.getElementById('scriptName').value.trim();
-      const content = document.getElementById('scriptContent').value;
-      
-      if(!name || !content) {
-        showToast('이름과 코드를 모두 입력하세요.');
-        return;
-      }
-      
-      try {
-        const res = await fetch(API_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, content })
-        });
-        
-        const data = await res.json();
-        if(res.ok) {
-          showToast(data.message);
-          closeEditor();
-          loadScripts();
-        } else {
-          showToast(data.error);
+    <!-- Delete Confirmation Modal -->
+    <div class="modal-overlay" id="deleteModal">
+        <div class="glass modal-content" style="max-width: 420px;">
+            <div class="modal-header">
+                <h2 class="modal-title">Delete Script</h2>
+            </div>
+            <p style="color: var(--text-secondary); margin-bottom: 1.5rem; line-height: 1.5; font-size: 0.95rem;">
+                Are you sure you want to delete "<span id="deleteScriptName" style="color: white; font-weight: 500;"></span>"? This action cannot be undone.
+            </p>
+            <div class="modal-footer">
+                <button class="glass-btn" onclick="closeDeleteModal()">Cancel</button>
+                <button class="glass-btn glass-btn-danger" onclick="confirmDelete()">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast">
+        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+        <span id="toastMsg">Message</span>
+    </div>
+
+    <script>
+        const API_URL = '/api/scripts';
+        let currentDeleteTarget = null;
+
+        // Helper: SVG Icons
+        const icons = {
+            copy: '<svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>',
+            edit: '<svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>',
+            trash: '<svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>',
+            check: '<svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>'
+        };
+
+        // Toast Function
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toastMsg').textContent = msg;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 3000);
         }
-      } catch (error) {
-        showToast('저장 중 오류가 발생했습니다.');
-      }
-    }
 
-    // 스크립트 삭제
-    async function deleteScript(name) {
-      if(!confirm(`'${name}' 스크립트를 삭제하시겠습니까?`)) return;
-      
-      try {
-        const res = await fetch(`${API_URL}/${name}`, { method: 'DELETE' });
-        const data = await res.json();
-        showToast(data.message || data.error);
-        loadScripts();
-      } catch (error) {
-        showToast('삭제 중 오류가 발생했습니다.');
-      }
-    }
+        // Load Scripts on start
+        document.addEventListener('DOMContentLoaded', loadScripts);
 
-    // URL 클립보드에 복사
-    function copyUrl(url) {
-      navigator.clipboard.writeText(`loadstring(game:HttpGet("${url}"))()`).then(() => {
-        showToast('로드스트링 코드가 복사되었습니다!');
-      });
-    }
+        async function loadScripts() {
+            try {
+                const res = await fetch(API_URL);
+                const scripts = await res.json();
+                
+                const list = document.getElementById('scriptList');
+                document.getElementById('statScripts').textContent = scripts.length;
+                document.getElementById('statUpdated').textContent = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+                
+                if (scripts.length === 0) {
+                    list.innerHTML = `<div class="glass" style="padding: 3rem; text-align: center; grid-column: 1 / -1; color: var(--text-muted);">No scripts found. Click "New Script" to create one.</div>`;
+                    return;
+                }
 
-    // 페이지 로드 시 스크립트 목록 불러오기
-    loadScripts();
-  </script>
+                list.innerHTML = scripts.map(script => `
+                    <div class="glass script-card">
+                        <div class="script-header">
+                            <div>
+                                <div class="script-name">${script.name}</div>
+                                <div class="script-url">${script.url}</div>
+                            </div>
+                        </div>
+                        <div class="script-actions">
+                            <button class="action-btn" onclick="copyUrl('${script.url}', this)">${icons.copy} Copy</button>
+                            <button class="action-btn" onclick="editScript('${script.name}', \`${script.content.replace(/`/g, '\\`').replace(/\$/g, '\\$')}\`)">${icons.edit} Edit</button>
+                            <button class="action-btn delete" onclick="openDeleteModal('${script.name}')">${icons.trash} Delete</button>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Error:', error);
+                showToast('Failed to load scripts.');
+            }
+        }
+
+        function openModal() {
+            document.getElementById('modalTitle').innerText = "New Script";
+            document.getElementById('scriptName').value = '';
+            document.getElementById('scriptContent').value = '';
+            document.getElementById('scriptName').disabled = false;
+            document.getElementById('scriptModal').classList.add('active');
+        }
+
+        function editScript(name, content) {
+            document.getElementById('modalTitle').innerText = "Edit Script";
+            document.getElementById('scriptName').value = name;
+            document.getElementById('scriptContent').value = content;
+            document.getElementById('scriptName').disabled = true;
+            document.getElementById('scriptModal').classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('scriptModal').classList.remove('active');
+        }
+
+        async function saveScript() {
+            const name = document.getElementById('scriptName').value.trim().toLowerCase();
+            const content = document.getElementById('scriptContent').value;
+            
+            if (!name || !content) {
+                showToast('Please fill in all fields.');
+                return;
+            }
+
+            try {
+                const res = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, content })
+                });
+                
+                if (res.ok) {
+                    closeModal();
+                    loadScripts();
+                    showToast('Script saved successfully.');
+                } else {
+                    const data = await res.json();
+                    showToast(data.error || 'Failed to save script.');
+                }
+            } catch (error) {
+                showToast('Network error occurred.');
+            }
+        }
+
+        function openDeleteModal(name) {
+            currentDeleteTarget = name;
+            document.getElementById('deleteScriptName').innerText = name;
+            document.getElementById('deleteModal').classList.add('active');
+        }
+
+        function closeDeleteModal() {
+            document.getElementById('deleteModal').classList.remove('active');
+            currentDeleteTarget = null;
+        }
+
+        async function confirmDelete() {
+            if (!currentDeleteTarget) return;
+            
+            try {
+                const res = await fetch(`${API_URL}/${currentDeleteTarget}`, { method: 'DELETE' });
+                if (res.ok) {
+                    closeDeleteModal();
+                    loadScripts();
+                    showToast('Script deleted.');
+                } else {
+                    showToast('Failed to delete script.');
+                }
+            } catch (error) {
+                showToast('Network error occurred.');
+            }
+        }
+
+        function copyUrl(url, btn) {
+            const code = `loadstring(game:HttpGet("${url}"))()`;
+            navigator.clipboard.writeText(code).then(() => {
+                btn.classList.add('copied');
+                btn.innerHTML = `${icons.check} Copied`;
+                
+                setTimeout(() => {
+                    btn.classList.remove('copied');
+                    btn.innerHTML = `${icons.copy} Copy`;
+                }, 2000);
+            }).catch(err => {
+                showToast('Copy failed. Please copy manually.');
+                console.error('Copy failed:', err);
+            });
+        }
+
+        // Close modal if clicking outside
+        window.onclick = function(event) {
+            const scriptModal = document.getElementById('scriptModal');
+            const deleteModal = document.getElementById('deleteModal');
+            if (event.target === scriptModal) closeModal();
+            if (event.target === deleteModal) closeDeleteModal();
+        }
+    </script>
 </body>
 </html>
