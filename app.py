@@ -1,7 +1,7 @@
 import os
 import datetime
 import requests
-from flask import Flask, render_template, jsonify, request, Response, session, redirect
+from flask import Flask, render_template, jsonify, request, Response, session, redirect, url_for
 from werkzeug.middleware.proxy_fix import ProxyFix
 from models import db, User, Script
 from security.rate_limit import limiter
@@ -10,9 +10,14 @@ from security.auth import login_required, admin_required, check_upload_limits, g
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 
+# --- 기본 설정 ---
 app.secret_key = os.environ.get('SECRET_KEY')
-app.config['MAX_CONTENT_LENGTH'] = 1 * 1024 * 1024
+app.config['MAX_CONTENT_LENGTH'] = 1 * 1024 * 1024 # 1MB 제한
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SECURE'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
+# --- DB 설정 ---
 database_url = os.environ.get('DATABASE_URL', 'sqlite:///local_test.db')
 if database_url.startswith("postgres://"):
     database_url = database_url.replace("postgres://", "postgresql://", 1)
@@ -23,90 +28,73 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db.init_app(app)
 limiter.init_app(app)
 
+# --- 인증 서버 설정 ---
+AUTH_SERVER_URL = os.environ.get('AUTH_SERVER_URL', 'https://authentication.p-e.kr')
+AUTH_INTERNAL_SECRET = os.environ.get('AUTH_INTERNAL_SECRET')
+
+# --- 보안 헤더 ---
 @app.after_request
 def set_security_headers(response):
     response.headers['X-Content-Type-Options'] = 'nosniff'
     response.headers['X-Frame-Options'] = 'DENY'
+    # 인증 서버와의 통신은 서버 사이드(requests)에서 이루어지므로 CSP에 authentication.p-e.kr를 추가할 필요 없음
     response.headers['Content-Security-Policy'] = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://cdn.discordapp.com; connect-src 'self';"
     return response
 
+# --- 웹 대시보드 및 인증 코드 처리 ---
 @app.route("/")
 @limiter.limit("30 per minute")
 def index():
+    auth_code = request.args.get('auth_code')
+    
+    # 인증 서버에서 리다이렉트된 auth_code가 있는 경우 서버 사이드 검증
+    if auth_code:
+        try:
+            verify_res = requests.post(
+                f"{AUTH_SERVER_URL}/api/auth/verify",
+                headers={
+                    "Content-Type": "application/json",
+                    "X-Auth-Secret": AUTH_INTERNAL_SECRET
+                },
+                json={"code": auth_code},
+                timeout=5 # 타임아웃 설정
+            )
+            
+            if verify_res.status_code == 200:
+                user_data = verify_res.json()
+                discord_id = user_data.get("discord_id")
+                username = user_data.get("username")
+                avatar_url = user_data.get("avatar_url")
+                
+                if discord_id:
+                    # DB 유저 조회/생성
+                    user = User.query.filter_by(discord_id=discord_id).first()
+                    if not user:
+                        user = User(discord_id=discord_id, role='user', username=username, avatar_url=avatar_url)
+                        db.session.add(user)
+                    else:
+                        # 기존 유저 정보 업데이트
+                        user.username = username
+                        user.avatar_url = avatar_url
+                        
+                    db.session.commit()
+                    session['user_id'] = user.id
+                    return redirect(url_for('index')) # 파라미터 제거하고 메인 페이지로 새로고침
+            else:
+                app.logger.error(f"Auth verify failed: Status {verify_res.status_code}")
+        except requests.exceptions.RequestException as e:
+            app.logger.error(f"Auth server network error: {str(e)}")
+        
+        # 검증 실패 시 에러 파라미터와 함께 리다이렉트
+        return redirect(url_for('index', error='auth_failed'))
+        
     return render_template("index.html")
 
-# --- 디스코드 OAuth2 인증 ---
+# --- 인증 라우트 ---
 @app.route("/api/auth/discord")
 def discord_login():
-    client_id = os.environ.get('DISCORD_CLIENT_ID')
-    redirect_uri = "https://script.ekohub.xyz/api/auth/discord/callback"
-    scope = "identify"
-    discord_auth_url = f"https://discord.com/api/oauth2/authorize?client_id={client_id}&redirect_uri={redirect_uri}&response_type=code&scope={scope}"
-    return redirect(discord_auth_url)
-
-@app.route("/api/auth/discord/callback")
-@limiter.limit("10 per minute")
-def discord_callback():
-    code = request.args.get('code')
-    if not code:
-        return redirect("/?error=auth_failed")
-
-    token_url = "https://discord.com/api/oauth2/token"
-    payload = {
-        "client_id": os.environ.get('DISCORD_CLIENT_ID'),
-        "client_secret": os.environ.get('DISCORD_CLIENT_SECRET'),
-        "grant_type": "authorization_code",
-        "code": code,
-        "redirect_uri": "https://script.ekohub.xyz/api/auth/discord/callback"
-    }
-    headers = {"Content-Type": "application/x-www-form-urlencoded"}
-    
-    token_res = requests.post(token_url, data=payload, headers=headers)
-    if token_res.status_code != 200:
-        return redirect("/?error=token_failed")
-    
-    access_token = token_res.json().get("access_token")
-    
-    user_res = requests.get("https://discord.com/api/users/@me", headers={"Authorization": f"Bearer {access_token}"})
-    if user_res.status_code != 200:
-        return redirect("/?error=user_fetch_failed")
-    
-    user_data = user_res.json()
-    discord_id = user_data.get("id")
-    username = user_data.get("username")
-    avatar_hash = user_data.get("avatar")
-    
-    # 디스코드 프로필 이미지 URL 생성
-    avatar_url = f"https://cdn.discordapp.com/avatars/{discord_id}/{avatar_hash}.png?size=64" if avatar_hash else None
-    
-    user = User.query.filter_by(discord_id=discord_id).first()
-    if not user:
-        user = User(discord_id=discord_id, role='user', username=username, avatar_url=avatar_url)
-        db.session.add(user)
-    else:
-        # 기존 유저면 닉네임/프사 업데이트
-        user.username = username
-        user.avatar_url = avatar_url
-        
-    db.session.commit()
-    
-    session['user_id'] = user.id
-    return redirect("/")
-
-# --- 관리자 인증 ---
-@app.route("/api/auth/admin", methods=['POST'])
-@limiter.limit("5 per minute")
-def admin_auth():
-    data = request.json
-    if data and data.get('password') == os.environ.get('ADMIN_PASSWORD'):
-        admin_user = User.query.filter_by(role='admin').first()
-        if not admin_user:
-            admin_user = User(discord_id='admin', role='admin', username='EKOHUB Admin', avatar_url=None)
-            db.session.add(admin_user)
-            db.session.commit()
-        session['user_id'] = admin_user.id
-        return jsonify({"success": True, "role": "admin"})
-    return jsonify({"error": "관리자 비밀번호가 틀렸습니다."}), 401
+    # 메인 서버는 직접 OAuth를 처리하지 않고 인증 서버로 리다이렉트
+    return redirect(f"{AUTH_SERVER_URL}/api/auth/discord")
 
 @app.route("/api/auth/logout", methods=['POST'])
 def logout():
@@ -125,7 +113,7 @@ def get_me():
         })
     return jsonify({"loggedIn": False}), 401
 
-# --- 스크립트 API ---
+# --- 스크립트 API (기존 코드 유지) ---
 @app.route("/api/scripts", methods=['GET'])
 @limiter.limit("30 per minute")
 def get_scripts():
@@ -213,6 +201,21 @@ def serve_script(script_name):
     if script:
         return Response(script.content, mimetype='text/plain')
     return Response("-- Script not found", status=404, mimetype='text/plain')
+
+# --- 관리자 로그인 (기존 비밀번호 방식 유지) ---
+@app.route("/api/auth/admin", methods=['POST'])
+@limiter.limit("5 per minute")
+def admin_auth():
+    data = request.json
+    if data and data.get('password') == os.environ.get('ADMIN_PASSWORD'):
+        admin_user = User.query.filter_by(role='admin').first()
+        if not admin_user:
+            admin_user = User(discord_id='admin', role='admin', username='EKOHUB Admin', avatar_url=None)
+            db.session.add(admin_user)
+            db.session.commit()
+        session['user_id'] = admin_user.id
+        return jsonify({"success": True, "role": "admin"})
+    return jsonify({"error": "관리자 비밀번호가 틀렸습니다."}), 401
 
 with app.app_context():
     db.create_all()
