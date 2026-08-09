@@ -3,36 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EKOHUB API - Script Dashboard</title>
+    <title>EKOHUB API - Dashboard</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <style>
         :root {
             --bg-dark: #050506;
+            --bg-gradient: radial-gradient(circle at 0% 0%, #0a0a0c 0%, #050506 100%);
             --glass-bg: rgba(255, 255, 255, 0.025);
-            --glass-bg-hover: rgba(255, 255, 255, 0.04);
+            --glass-bg-hover: rgba(255, 255, 255, 0.05);
             --glass-border: rgba(255, 255, 255, 0.08);
             --glass-border-hover: rgba(255, 255, 255, 0.15);
             --text-primary: #ffffff;
             --text-secondary: rgba(255, 255, 255, 0.6);
             --text-muted: rgba(255, 255, 255, 0.3);
-            --accent: #ffffff;
             --shadow-glass: 0 8px 32px rgba(0, 0, 0, 0.3);
-            --shadow-hover: 0 12px 40px rgba(0, 0, 0, 0.4);
+            --shadow-hover: 0 16px 48px rgba(0, 0, 0, 0.5);
         }
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        html {
-            scroll-behavior: smooth;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
 
         body {
             font-family: 'Inter', sans-serif;
-            background: var(--bg-dark);
+            background: var(--bg-gradient);
             color: var(--text-primary);
             min-height: 100vh;
             overflow-x: hidden;
@@ -40,49 +33,47 @@
             -webkit-font-smoothing: antialiased;
         }
 
-        /* Background Ambient Glows (Strictly Monochrome) */
+        /* Ambient Background Lights */
         .bg-glow {
             position: fixed;
             border-radius: 50%;
             filter: blur(120px);
             z-index: -1;
-            opacity: 0.15;
+            opacity: 0.1;
+            pointer-events: none;
         }
-        .bg-glow-1 { top: -10%; left: -10%; width: 600px; height: 600px; background: #ffffff; }
-        .bg-glow-2 { bottom: -10%; right: -10%; width: 500px; height: 500px; background: #808080; }
-        .bg-glow-3 { top: 40%; left: 50%; width: 400px; height: 400px; background: #404040; transform: translate(-50%, -50%); opacity: 0.1; }
+        .bg-glow-1 { top: -15%; left: -10%; width: 600px; height: 600px; background: #ffffff; }
+        .bg-glow-2 { bottom: -15%; right: -10%; width: 500px; height: 500px; background: #808080; }
 
-        /* Glass Effect Base */
+        /* Glass Effect */
         .glass {
             background: var(--glass-bg);
-            backdrop-filter: blur(20px) saturate(120%);
-            -webkit-backdrop-filter: blur(20px) saturate(120%);
+            backdrop-filter: blur(20px) saturate(150%);
+            -webkit-backdrop-filter: blur(20px) saturate(150%);
             border: 1px solid var(--glass-border);
             box-shadow: var(--shadow-glass);
-            border-radius: 12px;
+            border-radius: 16px;
             position: relative;
             overflow: hidden;
-            transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
         }
 
-        /* Subtle Reflection Highlight */
+        /* Moving Reflection */
         .glass::before {
             content: '';
             position: absolute;
             top: 0;
             left: -150%;
-            width: 60%;
+            width: 50%;
             height: 100%;
-            background: linear-gradient(120deg, transparent, rgba(255,255,255,0.03) 50%, transparent 80%);
+            background: linear-gradient(120deg, transparent, rgba(255,255,255,0.04) 50%, transparent 80%);
             transform: skewX(-20deg);
             pointer-events: none;
             transition: left 0.8s ease-in-out;
             z-index: 1;
         }
 
-        .glass:hover::before {
-            left: 150%;
-        }
+        .glass:hover::before { left: 150%; }
 
         /* Header */
         header {
@@ -95,37 +86,40 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            border-radius: 12px;
+            border-radius: 16px;
         }
 
-        .brand {
+        .brand-symbol {
             display: flex;
             align-items: center;
-            gap: 0.75rem;
+            justify-content: center;
+            width: 42px;
+            height: 42px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            color: #fff;
+            transition: all 0.3s ease;
+            cursor: pointer;
         }
 
-        .brand-logo {
-            font-family: 'Space Grotesk', sans-serif;
-            font-size: 1.35rem;
-            font-weight: 700;
-            letter-spacing: -0.02em;
-            background: linear-gradient(180deg, #ffffff 0%, #909090 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            text-transform: uppercase;
+        .brand-symbol:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: rotate(5deg);
         }
 
         .status-badge {
             display: flex;
             align-items: center;
             gap: 0.5rem;
-            padding: 0.4rem 0.9rem;
-            border-radius: 8px;
+            padding: 0.5rem 1rem;
+            border-radius: 12px;
             font-size: 0.75rem;
             font-weight: 500;
             color: var(--text-secondary);
             background: rgba(255, 255, 255, 0.03);
             border: 1px solid var(--glass-border);
+            font-family: 'JetBrains Mono', monospace;
         }
 
         .status-dot {
@@ -133,7 +127,7 @@
             height: 6px;
             background: #ffffff;
             border-radius: 50%;
-            box-shadow: 0 0 8px rgba(255, 255, 255, 0.6);
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
             animation: pulse 3s infinite;
         }
 
@@ -146,7 +140,7 @@
         main {
             max-width: 1400px;
             margin: 0 auto;
-            padding: 2rem 1rem;
+            padding: 2rem 1rem 4rem;
             animation: fadeInUp 0.8s ease-out;
         }
 
@@ -155,51 +149,45 @@
             to { opacity: 1; transform: translateY(0); }
         }
 
-        /* Dashboard Stats */
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-            gap: 1.5rem;
-            margin-bottom: 3rem;
-        }
-
-        .stat-card {
-            padding: 1.5rem;
-        }
-
-        .stat-card:hover {
-            transform: translateY(-2px);
-            background: var(--glass-bg-hover);
-            border-color: var(--glass-border-hover);
-        }
-
-        .stat-label {
-            font-size: 0.7rem;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-            margin-bottom: 0.5rem;
+        /* Hero Section */
+        .hero {
+            text-align: center;
+            padding: 6rem 1rem 5rem;
             position: relative;
-            z-index: 2;
+        }
+
+        .hero-tag {
+            display: inline-block;
+            padding: 0.4rem 1rem;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--glass-border);
+            border-radius: 100px;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-bottom: 2rem;
             font-family: 'JetBrains Mono', monospace;
+            letter-spacing: 0.05em;
         }
 
-        .stat-value {
+        .hero-title {
             font-family: 'Space Grotesk', sans-serif;
-            font-size: 1.5rem;
+            font-size: clamp(4rem, 15vw, 12rem);
             font-weight: 600;
-            position: relative;
-            z-index: 2;
+            letter-spacing: -0.06em;
+            line-height: 0.85;
+            margin-bottom: 1.5rem;
+            background: linear-gradient(180deg, #ffffff 30%, rgba(255,255,255,0.1) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 100px rgba(255, 255, 255, 0.1);
         }
 
-        .stat-icon {
-            position: absolute;
-            top: 1.5rem;
-            right: 1.5rem;
-            width: 24px;
-            height: 24px;
-            opacity: 0.1;
-            z-index: 2;
+        .hero-subtitle {
+            font-size: 1.1rem;
+            color: var(--text-secondary);
+            max-width: 500px;
+            margin: 0 auto;
+            line-height: 1.6;
         }
 
         /* Action Bar */
@@ -207,24 +195,49 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 1.5rem;
+            margin-bottom: 2rem;
+            gap: 1rem;
             padding: 0 0.5rem;
         }
 
-        .section-title {
-            font-family: 'Space Grotesk', sans-serif;
-            font-size: 1.2rem;
-            font-weight: 600;
+        .search-container {
             display: flex;
             align-items: center;
-            gap: 0.5rem;
-            color: var(--text-primary);
+            gap: 0.75rem;
+            padding: 0.75rem 1.2rem;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            flex: 1;
+            max-width: 400px;
+            transition: all 0.2s ease;
         }
 
+        .search-container:focus-within {
+            border-color: var(--glass-border-hover);
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .search-container svg {
+            color: var(--text-muted);
+        }
+
+        .search-input {
+            background: transparent;
+            border: none;
+            outline: none;
+            color: var(--text-primary);
+            font-family: 'Inter', sans-serif;
+            font-size: 0.9rem;
+            width: 100%;
+        }
+
+        .search-input::placeholder { color: var(--text-muted); }
+
         .glass-btn {
-            padding: 0.7rem 1.3rem;
+            padding: 0.75rem 1.4rem;
             border: 1px solid var(--glass-border);
-            border-radius: 8px;
+            border-radius: 12px;
             background: rgba(255, 255, 255, 0.03);
             color: var(--text-primary);
             font-family: 'Inter', sans-serif;
@@ -236,18 +249,11 @@
             display: flex;
             align-items: center;
             gap: 0.5rem;
-            position: relative;
-            overflow: hidden;
+            white-space: nowrap;
         }
 
-        .glass-btn:hover {
-            background: rgba(255, 255, 255, 0.08);
-            border-color: var(--glass-border-hover);
-        }
-
-        .glass-btn:active {
-            transform: scale(0.97);
-        }
+        .glass-btn:hover { background: rgba(255, 255, 255, 0.08); border-color: var(--glass-border-hover); }
+        .glass-btn:active { transform: scale(0.97); }
 
         .glass-btn-primary {
             background: #ffffff;
@@ -258,12 +264,11 @@
         .glass-btn-primary:hover {
             background: #e0e0e0;
             border-color: #e0e0e0;
-            box-shadow: 0 4px 20px rgba(255, 255, 255, 0.1);
+            box-shadow: 0 4px 20px rgba(255, 255, 255, 0.15);
         }
 
         .glass-btn-danger {
-            background: transparent;
-            border-color: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.15);
             color: var(--text-secondary);
         }
 
@@ -288,34 +293,82 @@
         }
 
         .script-card:hover {
-            transform: translateY(-3px);
-            background: var(--glass-bg-hover);
+            transform: translateY(-4px);
             border-color: var(--glass-border-hover);
             box-shadow: var(--shadow-hover);
+            background: var(--glass-bg-hover);
         }
 
         .script-header {
             display: flex;
             justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 0.5rem;
+            align-items: center;
             position: relative;
             z-index: 2;
         }
 
         .script-name {
             font-family: 'Space Grotesk', sans-serif;
-            font-size: 1.1rem;
+            font-size: 1.3rem;
             font-weight: 600;
             color: var(--text-primary);
         }
 
-        .script-url {
+        .script-meta {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            background: rgba(255,255,255,0.03);
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+        }
+
+        .script-code-preview {
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid var(--glass-border);
+            border-radius: 8px;
+            padding: 1rem;
             font-family: 'JetBrains Mono', monospace;
             font-size: 0.75rem;
-            color: var(--text-muted);
-            margin-top: 0.25rem;
+            color: var(--text-secondary);
+            white-space: pre-wrap;
             word-break: break-all;
+            max-height: 100px;
+            overflow: hidden;
+            position: relative;
+            z-index: 2;
+            line-height: 1.5;
+        }
+
+        .script-code-preview::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 40px;
+            background: linear-gradient(to bottom, transparent, rgba(10,10,12,0.9));
+        }
+
+        .script-url-box {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--glass-border);
+            border-radius: 8px;
+            padding: 0.8rem 1rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            word-break: break-all;
+            position: relative;
+            z-index: 2;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .script-url-box::before {
+            content: '$';
+            color: var(--text-muted);
         }
 
         .script-actions {
@@ -330,10 +383,10 @@
 
         .action-btn {
             flex: 1;
-            padding: 0.5rem;
+            padding: 0.6rem;
             background: rgba(255, 255, 255, 0.02);
             border: 1px solid transparent;
-            border-radius: 6px;
+            border-radius: 8px;
             color: var(--text-secondary);
             font-size: 0.8rem;
             font-weight: 500;
@@ -343,8 +396,6 @@
             align-items: center;
             justify-content: center;
             gap: 0.4rem;
-            position: relative;
-            overflow: hidden;
         }
 
         .action-btn:hover {
@@ -353,9 +404,7 @@
             border-color: var(--glass-border);
         }
 
-        .action-btn:active {
-            transform: scale(0.95);
-        }
+        .action-btn:active { transform: scale(0.95); }
 
         .action-btn.copied {
             background: rgba(255, 255, 255, 0.1);
@@ -366,7 +415,7 @@
 
         @keyframes copySuccess {
             0% { transform: scale(1); }
-            50% { transform: scale(1.05); box-shadow: 0 0 15px rgba(255, 255, 255, 0.1); }
+            50% { transform: scale(1.05); box-shadow: 0 0 15px rgba(255, 255, 255, 0.15); }
             100% { transform: scale(1); }
         }
 
@@ -374,6 +423,21 @@
             background: rgba(255, 255, 255, 0.08);
             color: #ffffff;
             border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        /* Empty State */
+        .empty-state {
+            grid-column: 1 / -1;
+            text-align: center;
+            padding: 5rem 1rem;
+            color: var(--text-muted);
+        }
+
+        .empty-state svg {
+            width: 48px;
+            height: 48px;
+            margin-bottom: 1.5rem;
+            opacity: 0.2;
         }
 
         /* Modal */
@@ -400,30 +464,30 @@
 
         .modal-content {
             width: 90%;
-            max-width: 580px;
-            padding: 2rem;
-            background: rgba(10, 10, 12, 0.6);
+            max-width: 600px;
+            padding: 2.5rem;
+            background: rgba(15, 15, 18, 0.8);
             border: 1px solid var(--glass-border-hover);
-            animation: modalScaleIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            animation: modalScaleIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
 
         @keyframes modalScaleIn {
-            from { transform: scale(0.95); opacity: 0; }
-            to { transform: scale(1); opacity: 1; }
+            from { transform: translateY(20px) scale(0.98); opacity: 0; }
+            to { transform: translateY(0) scale(1); opacity: 1; }
         }
 
         .modal-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 1.5rem;
+            margin-bottom: 2rem;
             position: relative;
             z-index: 2;
         }
 
         .modal-title {
             font-family: 'Space Grotesk', sans-serif;
-            font-size: 1.3rem;
+            font-size: 1.5rem;
             font-weight: 600;
         }
 
@@ -433,17 +497,16 @@
             color: var(--text-muted);
             cursor: pointer;
             padding: 0.5rem;
-            transition: color 0.2s;
-            border-radius: 6px;
+            transition: all 0.2s;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .close-btn:hover { color: #ffffff; background: rgba(255,255,255,0.05); }
 
-        .form-group {
-            margin-bottom: 1.5rem;
-            position: relative;
-            z-index: 2;
-        }
+        .form-group { margin-bottom: 1.5rem; position: relative; z-index: 2; }
 
         .form-label {
             display: block;
@@ -457,22 +520,22 @@
 
         .form-input, .form-textarea {
             width: 100%;
-            padding: 0.8rem 1rem;
+            padding: 0.9rem 1.2rem;
             background: rgba(0, 0, 0, 0.2);
             border: 1px solid var(--glass-border);
-            border-radius: 8px;
+            border-radius: 10px;
             color: white;
             font-family: 'Inter', sans-serif;
-            font-size: 0.9rem;
+            font-size: 0.95rem;
             transition: all 0.2s ease;
             outline: none;
         }
 
         .form-textarea {
             font-family: 'JetBrains Mono', monospace;
-            min-height: 160px;
+            min-height: 200px;
             resize: vertical;
-            line-height: 1.5;
+            line-height: 1.6;
         }
 
         .form-input:focus, .form-textarea:focus {
@@ -481,10 +544,7 @@
             box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.03);
         }
 
-        .form-input:disabled {
-            color: var(--text-muted);
-            cursor: not-allowed;
-        }
+        .form-input:disabled { color: var(--text-muted); cursor: not-allowed; }
 
         .modal-footer {
             display: flex;
@@ -495,7 +555,7 @@
             z-index: 2;
         }
 
-        /* Toast Notification */
+        /* Toast */
         .toast {
             position: fixed;
             bottom: 2rem;
@@ -505,7 +565,7 @@
             backdrop-filter: blur(16px);
             border: 1px solid var(--glass-border-hover);
             padding: 1rem 1.5rem;
-            border-radius: 8px;
+            border-radius: 12px;
             color: white;
             font-size: 0.9rem;
             opacity: 0;
@@ -523,118 +583,99 @@
         }
 
         /* Scrollbar */
-        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
         ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
 
         /* Responsive */
         @media (max-width: 768px) {
-            header { padding: 1rem; margin: 0.5rem; flex-direction: column; gap: 1rem; border-radius: 12px; }
-            main { padding: 1rem 0.5rem; }
-            .stats-grid { grid-template-columns: 1fr 1fr; gap: 1rem; }
-            .stat-card { padding: 1rem; }
-            .stat-value { font-size: 1.2rem; }
+            header { padding: 1rem; margin: 0.5rem; border-radius: 12px; }
+            main { padding: 1rem 0.5rem 2rem; }
+            .hero { padding: 3rem 1rem 4rem; }
             .script-grid { grid-template-columns: 1fr; }
-            .action-bar { flex-direction: column; gap: 1rem; align-items: flex-start; padding: 0; }
+            .action-bar { flex-direction: column; align-items: stretch; padding: 0; }
+            .search-container { max-width: 100%; }
             .modal-content { padding: 1.5rem; }
         }
     </style>
 </head>
 <body>
-    <!-- Background Ambient Lights -->
     <div class="bg-glow bg-glow-1"></div>
     <div class="bg-glow bg-glow-2"></div>
-    <div class="bg-glow bg-glow-3"></div>
 
-    <!-- Header -->
     <header class="glass">
-        <div class="brand">
-            <div class="brand-logo">EKO HUB</div>
+        <div class="brand-symbol" onclick="window.scrollTo({top:0, behavior:'smooth'})">
+            <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+            </svg>
         </div>
         <div class="status-badge">
             <div class="status-dot"></div>
-            API ONLINE
+            SYSTEM ONLINE
         </div>
     </header>
 
-    <!-- Main Content -->
     <main>
-        <!-- Stats Grid -->
-        <div class="stats-grid">
-            <div class="glass stat-card">
-                <div class="stat-label">Total Scripts</div>
-                <div class="stat-value" id="statScripts">0</div>
-                <svg class="stat-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-            </div>
-            <div class="glass stat-card">
-                <div class="stat-label">API Status</div>
-                <div class="stat-value">Online</div>
-                <svg class="stat-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-            </div>
-            <div class="glass stat-card">
-                <div class="stat-label">Database</div>
-                <div class="stat-value">Supabase</div>
-                <svg class="stat-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"></path></svg>
-            </div>
-            <div class="glass stat-card">
-                <div class="stat-label">Last Updated</div>
-                <div class="stat-value" id="statUpdated">--:--</div>
-                <svg class="stat-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-            </div>
-        </div>
+        <!-- Hero -->
+        <section class="hero">
+            <div class="hero-tag">PREMIUM HOSTING SERVICE</div>
+            <h1 class="hero-title">EKO HUB</h1>
+            <p class="hero-subtitle">High-performance script hosting infrastructure. Deploy, manage, and execute your code instantly.</p>
+        </section>
 
         <!-- Action Bar -->
         <div class="action-bar">
-            <div class="section-title">Hosted Scripts</div>
+            <div class="search-container">
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                <input type="text" class="search-input" id="searchInput" placeholder="Search scripts...">
+            </div>
             <button class="glass-btn glass-btn-primary" onclick="openModal()">
-                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-                New Script
+                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"></path></svg>
+                Deploy New Script
             </button>
         </div>
 
-        <!-- Script List -->
-        <div class="script-grid" id="scriptList">
-            <!-- Scripts will be injected here -->
-        </div>
+        <!-- Script Grid -->
+        <div class="script-grid" id="scriptList"></div>
     </main>
 
-    <!-- Script Modal -->
+    <!-- Modal: Add/Edit Script -->
     <div class="modal-overlay" id="scriptModal">
         <div class="glass modal-content">
             <div class="modal-header">
-                <h2 class="modal-title" id="modalTitle">New Script</h2>
+                <h2 class="modal-title" id="modalTitle">Deploy Script</h2>
                 <button class="close-btn" onclick="closeModal()">
                     <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                 </button>
             </div>
             <div class="form-group">
-                <label class="form-label">Script Name</label>
+                <label class="form-label">Identifier</label>
                 <input type="text" class="form-input" id="scriptName" placeholder="e.g. drivingempire" autocomplete="off">
             </div>
             <div class="form-group">
-                <label class="form-label">Lua Code</label>
+                <label class="form-label">Payload (Lua)</label>
                 <textarea class="form-textarea" id="scriptContent" placeholder="print('Hello EKOHUB!')"></textarea>
             </div>
             <div class="modal-footer">
                 <button class="glass-btn" onclick="closeModal()">Cancel</button>
-                <button class="glass-btn glass-btn-primary" onclick="saveScript()">Save Script</button>
+                <button class="glass-btn glass-btn-primary" onclick="saveScript()">Deploy</button>
             </div>
         </div>
     </div>
 
-    <!-- Delete Confirmation Modal -->
+    <!-- Modal: Delete Confirmation -->
     <div class="modal-overlay" id="deleteModal">
-        <div class="glass modal-content" style="max-width: 420px;">
+        <div class="glass modal-content" style="max-width: 440px;">
             <div class="modal-header">
-                <h2 class="modal-title">Delete Script</h2>
+                <h2 class="modal-title">Confirm Termination</h2>
             </div>
-            <p style="color: var(--text-secondary); margin-bottom: 1.5rem; line-height: 1.5; font-size: 0.95rem;">
-                Are you sure you want to delete "<span id="deleteScriptName" style="color: white; font-weight: 500;"></span>"? This action cannot be undone.
+            <p style="color: var(--text-secondary); margin-bottom: 2rem; line-height: 1.6; font-size: 0.95rem;">
+                You are about to permanently terminate "<span id="deleteScriptName" style="color: white; font-weight: 500;"></span>". This action is irreversible.
             </p>
             <div class="modal-footer">
-                <button class="glass-btn" onclick="closeDeleteModal()">Cancel</button>
-                <button class="glass-btn glass-btn-danger" onclick="confirmDelete()">Delete</button>
+                <button class="glass-btn" onclick="closeDeleteModal()">Abort</button>
+                <button class="glass-btn glass-btn-danger" onclick="confirmDelete()">Terminate</button>
             </div>
         </div>
     </div>
@@ -648,8 +689,8 @@
     <script>
         const API_URL = '/api/scripts';
         let currentDeleteTarget = null;
+        let scriptsData = [];
 
-        // Helper: SVG Icons
         const icons = {
             copy: '<svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>',
             edit: '<svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>',
@@ -657,7 +698,6 @@
             check: '<svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>'
         };
 
-        // Toast Function
         function showToast(msg) {
             const toast = document.getElementById('toast');
             document.getElementById('toastMsg').textContent = msg;
@@ -665,56 +705,83 @@
             setTimeout(() => toast.classList.remove('show'), 3000);
         }
 
-        // Load Scripts on start
+        function escapeHtml(text) {
+            const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+            return text.replace(/[&<>"']/g, m => map[m]);
+        }
+
         document.addEventListener('DOMContentLoaded', loadScripts);
 
         async function loadScripts() {
             try {
                 const res = await fetch(API_URL);
-                const scripts = await res.json();
-                
-                const list = document.getElementById('scriptList');
-                document.getElementById('statScripts').textContent = scripts.length;
-                document.getElementById('statUpdated').textContent = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
-                
-                if (scripts.length === 0) {
-                    list.innerHTML = `<div class="glass" style="padding: 3rem; text-align: center; grid-column: 1 / -1; color: var(--text-muted);">No scripts found. Click "New Script" to create one.</div>`;
-                    return;
-                }
-
-                list.innerHTML = scripts.map(script => `
-                    <div class="glass script-card">
-                        <div class="script-header">
-                            <div>
-                                <div class="script-name">${script.name}</div>
-                                <div class="script-url">${script.url}</div>
-                            </div>
-                        </div>
-                        <div class="script-actions">
-                            <button class="action-btn" onclick="copyUrl('${script.url}', this)">${icons.copy} Copy</button>
-                            <button class="action-btn" onclick="editScript('${script.name}', \`${script.content.replace(/`/g, '\\`').replace(/\$/g, '\\$')}\`)">${icons.edit} Edit</button>
-                            <button class="action-btn delete" onclick="openDeleteModal('${script.name}')">${icons.trash} Delete</button>
-                        </div>
-                    </div>
-                `).join('');
+                scriptsData = await res.json();
+                renderScripts(scriptsData);
             } catch (error) {
                 console.error('Error:', error);
                 showToast('Failed to load scripts.');
             }
         }
 
+        function renderScripts(scripts) {
+            const list = document.getElementById('scriptList');
+            
+            if (scripts.length === 0) {
+                list.innerHTML = `
+                    <div class="glass empty-state">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path></svg>
+                        <h3>No Scripts Found</h3>
+                        <p style="margin-top: 0.5rem; font-size: 0.9rem;">Deploy your first script to get started.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            list.innerHTML = scripts.map(script => {
+                const codeString = `loadstring(game:HttpGet("${script.url}"))()`;
+                const previewContent = script.content.length > 120 ? script.content.substring(0, 120) + '...' : script.content;
+                const lineCount = script.content.split('\n').length;
+                
+                return `
+                <div class="glass script-card">
+                    <div class="script-header">
+                        <div class="script-name">${escapeHtml(script.name)}</div>
+                        <div class="script-meta">${lineCount} LINES</div>
+                    </div>
+                    <div class="script-code-preview">${escapeHtml(previewContent)}</div>
+                    <div class="script-url-box">${escapeHtml(codeString)}</div>
+                    <div class="script-actions">
+                        <button class="action-btn" onclick="copyUrl('${script.url}', this)">${icons.copy} Copy</button>
+                        <button class="action-btn" onclick="editScript('${script.name}')">${icons.edit} Edit</button>
+                        <button class="action-btn delete" onclick="openDeleteModal('${script.name}')">${icons.trash} Delete</button>
+                    </div>
+                </div>
+                `;
+            }).join('');
+        }
+
+        // Search Functionality
+        document.getElementById('searchInput').addEventListener('input', (e) => {
+            const searchTerm = e.target.value.toLowerCase();
+            const filtered = scriptsData.filter(script => script.name.toLowerCase().includes(searchTerm));
+            renderScripts(filtered);
+        });
+
         function openModal() {
-            document.getElementById('modalTitle').innerText = "New Script";
+            document.getElementById('modalTitle').innerText = "Deploy Script";
             document.getElementById('scriptName').value = '';
             document.getElementById('scriptContent').value = '';
             document.getElementById('scriptName').disabled = false;
             document.getElementById('scriptModal').classList.add('active');
         }
 
-        function editScript(name, content) {
+        function editScript(name) {
+            const script = scriptsData.find(s => s.name === name);
+            if (!script) return;
+
             document.getElementById('modalTitle').innerText = "Edit Script";
-            document.getElementById('scriptName').value = name;
-            document.getElementById('scriptContent').value = content;
+            document.getElementById('scriptName').value = script.name;
+            document.getElementById('scriptContent').value = script.content;
             document.getElementById('scriptName').disabled = true;
             document.getElementById('scriptModal').classList.add('active');
         }
@@ -741,8 +808,8 @@
                 
                 if (res.ok) {
                     closeModal();
-                    loadScripts();
-                    showToast('Script saved successfully.');
+                    await loadScripts();
+                    showToast('Script deployed successfully.');
                 } else {
                     const data = await res.json();
                     showToast(data.error || 'Failed to save script.');
@@ -770,8 +837,8 @@
                 const res = await fetch(`${API_URL}/${currentDeleteTarget}`, { method: 'DELETE' });
                 if (res.ok) {
                     closeDeleteModal();
-                    loadScripts();
-                    showToast('Script deleted.');
+                    await loadScripts();
+                    showToast('Script terminated.');
                 } else {
                     showToast('Failed to delete script.');
                 }
@@ -790,11 +857,20 @@
                     btn.classList.remove('copied');
                     btn.innerHTML = `${icons.copy} Copy`;
                 }, 2000);
+                showToast('Copied to clipboard.');
             }).catch(err => {
                 showToast('Copy failed. Please copy manually.');
                 console.error('Copy failed:', err);
             });
         }
+
+        // Keyboard Shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeModal();
+                closeDeleteModal();
+            }
+        });
 
         // Close modal if clicking outside
         window.onclick = function(event) {
