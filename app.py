@@ -74,6 +74,11 @@ def index():
                     else:
                         user.username = username
                         user.avatar_url = avatar_url
+                    db.session.commit()
+                    session['user_id'] = user.id
+                    app.logger.info(f"SESSION_CREATED user_id={user.id}")
+                    app.logger.info(f"SESSION_NOW={dict(session)}")
+                    return redirect(url_for('index'))
                         
                     db.session.commit()
                     session['user_id'] = user.id
